@@ -1,0 +1,236 @@
+/* Map Type Selector */
+.map-type-control {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;
+}
+
+.map-type-selector {
+  position: relative;
+  display: inline-block;
+}
+
+.map-type-main {
+  background: white;
+  border: 1px solid #ccc;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  min-width: 100px;
+  text-align: center;
+}
+
+.map-type-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  margin-top: 1px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  width: 100%;
+}
+
+.map-type-option {
+  display: block;
+  width: 100%;
+  padding: 8px 16px;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.map-type-option:hover {
+  background-color: #f5f5f5;
+}
+
+.map-type-option.active {
+  background-color: #e6e6e6;
+}
+
+/* Earthquake Info Window */
+.earthquake-info {
+  position: absolute;
+  left: 1%;
+  top: 30%;
+  background-color: rgba(255, 255, 255, 0.6);
+  padding: 10px;
+  border-radius: 10px;
+  box-shadow: 0px 2px 10px rgba(0,0,0,0.2);
+  max-width: 250px;
+  z-index: 1000;
+}
+
+.earthquake-info p {
+  margin: 5px 0;
+  font-size: 14px;
+}
+
+.earthquake-info button {
+  background-color: #d9534f;
+  color: #fff;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 5px;
+}
+
+.earthquake-info.showing-depth {
+  background: linear-gradient(to bottom, rgba(255,255,255,0.8), rgba(240,240,240,0.9));
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  border-left: 4px solid #d43131;
+  transition: all 0.3s ease;
+}
+
+.depth-visualization-info {
+  margin-top: 10px;
+  border-top: 1px dashed #ccc;
+  padding-top: 8px;
+}
+
+.pulsing-text {
+  display: flex;
+  align-items: center;
+  animation: pulse-text 1.5s infinite;
+  color: #d43131;
+  font-weight: bold;
+}
+
+.pulse-icon {
+  display: inline-block;
+  margin-right: 5px;
+  animation: pulse-icon 1.5s infinite;
+  font-size: 18px;
+}
+
+@keyframes pulse-text {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+@keyframes pulse-icon {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.7; }
+}
+
+/* Cross-section view */
+.cross-section-container {
+  position: absolute;
+  bottom: 32%;
+  right: 10%;
+  width: 320px;
+  height: 240px;
+  background: linear-gradient(to bottom, #36648B, #254156);
+  border-radius: 8px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3), 0 3px 6px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+  z-index: 100;
+  animation: crossSectionAppear 0.3s ease-out forwards;
+}
+
+/* Animation for the cross-section container when it appears */
+@keyframes crossSectionAppear {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Volcano info */
+.volcano-info {
+  position: absolute;
+  left: 1%;
+  top: 30%;
+  background-color: rgba(255, 250, 245, 0.9);
+  padding: 12px;
+  border-radius: 10px;
+  box-shadow: 0px 3px 12px rgba(0,0,0,0.3);
+  max-width: 280px;
+  z-index: 1000;
+  border-left: 4px solid #FF5722;
+  font-family: Arial, sans-serif;
+}
+
+.volcano-info h3 {
+  margin: 0 0 8px 0;
+  color: #FF5722;
+  font-size: 16px;
+  border-bottom: 1px solid #FFCCBC;
+  padding-bottom: 5px;
+}
+
+.volcano-info p {
+  margin: 5px 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.volcano-info .elevation {
+  color: #775533;
+  font-weight: bold;
+}
+
+.volcano-info .eruption {
+  color: #D50000;
+  font-weight: bold;
+}
+
+.volcano-info button {
+  background-color: #FF5722;
+  color: #fff;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 8px;
+  transition: background-color 0.2s;
+}
+
+.volcano-info button:hover {
+  background-color: #E64A19;
+}
+
+/* Grid Functionality */
+.grid-toggle-container {
+  position: absolute;
+  bottom: 55px;
+  left: 10px;
+  z-index: 1000;
+}
+
+
+
+/* Add a new class for the volcano toggle container */
+.volcano-toggle-container {
+  position: absolute;
+  bottom: 100px;  /* Changed from 125px - moved it down */
+  left: 10px;
+  z-index: 1000;
+}
+
+.grid-toggle .slider.round {
+  background-color: #ccc;
+}
+
+.grid-toggle input:checked + .slider {
+  background-color: #2196F3; /* Blue color for grid toggle */
+}
+
+.grid-toggle input:focus + .slider {
+  box-shadow: 0 0 1px #2196F3;
+}

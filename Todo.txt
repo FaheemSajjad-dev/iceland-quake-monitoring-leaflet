@@ -1,0 +1,51 @@
+ssh -l mfs7 pluto.cs.hi.is
+
+command
+
+Don't change app.py in upload version 
+
+--------------------------------
+
+Remove the API key from the code for safety -- done
+
+-----------------------------------------
+
+stress test command : 
+
+go here "C:\Users\fhmsa\Downloads\httpd-2.4.63-250207-win64-VS17\Apache24\bin" and use command:
+
+ .\ab.exe -n 100 -c 10 http://localhost:5000/ear
+thquakes
+
+------------------------------------------------
+
+•	Earth quakes -> squares (middle is earthquake)  ------- Done (MapComponent.jsx)
+•	Improve time interval slider (see screen shot) -- done
+•	Flashing thing is funny, Make it easy to turn it off. Let's discuss flashing next week.
+•	Also, discuss depth display next week
+•	Run performance tool on Pluto --------- Done
+•	Explain what the performance is measuring in the thesis
+•	Discuss your trial of OpenStreetMap in the thesis
+•	Try at some point 10-20 different computers access the website simultaneously 
+•	Update earthquakes every 10 seconds. ---------- Done (App.jsx)
+
+
+------------------------------------------------
+
+make it live --- issues
+
+---------------------------------------------
+
+make the squares half as big --- done
+
+magnitude scale slider as well, put a button (turn on and off as well) ------ done 
+
+fix the cross view thing and add on and off bitton for it as well -- done (on and off not added)
+
+make the circlce smaller, absolute ---- done
+
+turn of the volcanos when the application starts --- done
+
+Remove earthquakes with depth >= 25km
+
+---------------------------------------

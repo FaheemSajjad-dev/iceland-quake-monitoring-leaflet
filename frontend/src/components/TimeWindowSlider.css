@@ -1,0 +1,186 @@
+/* Time Window Slider - Conveyor Belt Style */
+.time-window-slider-container {
+  background-color: rgba(250, 250, 250, 0.95);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  width: 40%;          /* ↑ bumped from 40% up to 50% */
+  max-width: 400px;    /* ↑ bumped from 450px up to 550px */
+  height: fit-content;
+  padding: 10px 20px;  /* ↑ more horizontal padding so labels don’t clip */
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  border: none;
+}
+
+.timeline-slider {
+  height: 40px; /* Reduced from 45px */
+  position: relative;
+  width: 100%;
+  overflow: visible;
+}
+
+.timeline-track {
+  border: 2px solid #666666;
+  height: 18px; /* Reduced from 20px */
+  position: absolute;
+  top: 8px; /* Reduced from 10px */
+  left: 0;
+  right: 0;
+  border-radius: 3px;
+  transition: background-color 0.2s ease;
+  overflow: visible;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.timeline-track:hover {
+  filter: brightness(0.95);
+}
+
+.timeline-track.dragging {
+  cursor: grabbing !important;
+  filter: brightness(0.9);
+  height: 20px; /* Reduced from 22px */
+  top: 7px; /* Adjusted from 9px */
+  border-color: #c0392b; /* Darker version of the vibrant reddish tone for the active state */
+}
+
+/* Divider base style */
+.divider {
+  position: absolute;
+  width: 2px;
+  pointer-events: none;
+  transform: translateX(-0.5px);
+  z-index: 5; /* Make dividers appear above the background */
+}
+
+/* Day divider: solid line, matching month thickness */
+.divider.divider-day {
+  background-color: #000000;
+  width: 1px;
+  height: 100%;
+  top: 0;
+}
+
+/* Month divider: solid, slightly thicker */
+.divider.divider-month {
+  background-color: #000000;
+  width: 1px;
+  height: 100%;
+  top: 0;
+}
+
+/* Year divider: solid and thickest */
+.divider.divider-year {
+  background-color: #000000;
+  width: 3px;
+  height: 100%;
+  top: 0;
+  opacity: 0.8;
+}
+
+.year-labels {
+  position: absolute;
+  width: 100%;
+  top: 28px; /* Reduced from 32px */
+  height: 14px; /* Reduced from 16px */
+  pointer-events: none;
+}
+
+.year-label {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 11px; /* Reduced from 12px */
+  color: #333333;
+  text-align: center;
+  font-weight: 600;
+  pointer-events: none;
+  white-space: nowrap;
+  background-color: none;
+  padding: 0 3px;
+  z-index: 10; /* Ensure labels appear above dividers */
+}
+
+.selected-date {
+  margin-top: 4px; /* Reduced from 5px */
+  font-weight: 500;
+  font-size: 13px; /* Reduced from 14px */
+  color: #333;
+  letter-spacing: 0.2px;
+  background-color: rgba(255, 255, 255, 0.7);
+  padding: 2px 5px;
+  border-radius: 3px;
+  text-align: center;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+}
+
+/* Day view specific styles */
+.day-labels {
+  position: absolute;
+  width: 100%;
+  top: 28px; /* Reduced from 32px */
+  height: 30px; /* Reduced from 32px */
+  pointer-events: none;
+}
+
+.day-label {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 9px; /* Reduced from 10px */
+  color: #444;
+  text-align: center;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.month-label {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 10px; /* Reduced from 11px */
+  color: #333;
+  font-weight: 500;
+  pointer-events: none;
+  white-space: nowrap;
+  top: 14px; /* Reduced from 15px */
+}
+
+/* Zoom indicator text */
+.zoom-indicator {
+  margin-top: 2px; /* Reduced from 3px */
+  font-style: italic;
+  font-size: 10px; /* Reduced from 11px */
+  color: #666;
+  text-align: center;
+  padding: 0 5px;
+}
+
+/* Adjust time window slider container for day view mode */
+.time-window-slider-container.day-view {
+  padding-bottom: 14px; /* Reduced from 16px */
+  height: auto; /* Allow container to expand */
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .time-window-slider-container {
+    width: 65%; /* Reduced from 70% */
+  }
+  
+  .day-labels {
+    height: 36px; /* Reduced from 40px */
+  }
+  
+  .day-label {
+    font-size: 9px;
+  }
+  
+  .month-label {
+    font-size: 10px;
+    top: 16px; /* Reduced from 18px */
+  }
+}

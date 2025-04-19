@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "@googlemaps/markerclusterer": "^2.5.3",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^0.475.0",
+    "ol": "^10.4.0",
+    "react-error-boundary": "^5.0.0",
+    "react-leaflet": "^5.0.0"
+  }
+}
