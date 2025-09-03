@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { GoogleMap, LoadScript, Marker, OverlayView } from "@react-google-maps/api";
 import MapTypeSelector from "./MapTypeSelector";
 import CrossSectionView from "./CrossSectionView";
+import VolcanoMarker from "./VolcanoMarker";
 import './MapComponent.css';
 
 const mapContainerStyle = {
@@ -53,14 +54,6 @@ const getMarkerColor = (magnitude, maxMagnitude) => {
     const blue = Math.floor(50 - intensity * 50);
     return `rgb(${red}, ${green}, ${blue})`;
 };
-
-// Enhanced volcano icon - slightly larger and more prominent
-const volcanoIcon = `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
-  <path fill="#FF5722" d="M12,2L9,9H15L12,2M13,13H11V16H13V13M18.6,19C15.5,16.3 13.5,14 12,12.2C10.5,14 8.5,16.3 5.4,19H18.6Z" />
-  <circle cx="12" cy="12" r="11" fill="none" stroke="#FFA000" stroke-width="1" />
-</svg>
-`;
 
 // Custom Circle Overlay for visualization
 const CircleOverlay = ({ position, size, pulseActive, onUnmount }) => {
@@ -695,7 +688,7 @@ const MapComponent = ({ earthquakes, volcanoes = [], maxMagnitude, onMapTypeChan
                     }}
                 >
                     {/* Earthquake Markers */}
-                    {earthquakes.map((quake, index) => {
+                    {[...earthquakes].sort((a,b) => parseFloat(b.Mw_mean) - parseFloat(a.Mw_mean)).map((quake, index) => {
                         const magnitude = parseFloat(quake.Mw_mean);
                         return (
                             <Marker
@@ -714,6 +707,7 @@ const MapComponent = ({ earthquakes, volcanoes = [], maxMagnitude, onMapTypeChan
                                     e.stop();
                                     handleMarkerClick(quake);
                                 }}
+                                zIndex={Math.floor(parseFloat(quake.Mw_mean))}
                                 options={{ 
                                     optimized: true,
                                     visible: true
@@ -736,35 +730,18 @@ const MapComponent = ({ earthquakes, volcanoes = [], maxMagnitude, onMapTypeChan
                     )}
                     
                     {/* Volcano Markers */}
-                    {volcanoes.map((volcano, index) => {
-                        if (!volcano.latitude || !volcano.longitude) return null;
-                        
-                        const position = { 
-                            lat: volcano.latitude, 
-                            lng: volcano.longitude 
-                        };
-                        
-                        return (
-                            <Marker
-                                key={`volcano-${index}`}
-                                position={position}
-                                icon={{
-                                    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(volcanoIcon)}`,
-                                    scaledSize: { width: 20, height: 20 },
-                                    anchor: { x: 10, y: 10 }
-                                }}
-                                onClick={(e) => {
-                                    e.stop();
-                                    handleVolcanoClick(volcano, position);
-                                }}
-                                zIndex={10} // Higher zIndex to make volcanoes appear above earthquakes
-                                options={{ 
-                                    optimized: true,
-                                    visible: true
-                                }}
-                            />
-                        );
-                    })}
+                    {volcanoes.map((volcano, index) => (
+                        <VolcanoMarker
+                            key={`volcano-${index}`}
+                            volcano={volcano}
+                            onSelect={(v) =>
+                                handleVolcanoClick(v, {
+                                    lat: parseFloat(v.latitude),
+                                    lng: parseFloat(v.longitude)
+                                })
+                            }
+                        />
+                    ))}
 
                     {/* Earthquake Info Window */}
                     {selectedEarthquake && (

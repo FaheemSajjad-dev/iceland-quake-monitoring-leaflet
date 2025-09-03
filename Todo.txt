@@ -9,6 +9,42 @@ Don't change app.py in upload version
 Remove the API key from the code for safety -- done
 
 -----------------------------------------
+while making changes
+
+# 1) Copy edited source file into your local “upload” staging folder (PowerShell)
+Copy-Item "F:\iceland-quake-monitoring\frontend\src\components\MapComponent.jsx" `
+  -Destination "F:\Upload to pluto\iceland-quake-monitoring\frontend\src\components\MapComponent.jsx" `
+  -Force
+
+# 2) Build the frontend in the upload folder
+cd "F:\Upload to pluto\iceland-quake-monitoring\frontend"
+npm install
+npm run build
+
+# 3) Upload the changed source file, the new dist/ contents, and .env to Pluto
+scp "F:\Upload to pluto\iceland-quake-monitoring\frontend\src\components\TimeWindowSlider.jsx" `
+    mfs7@pluto.cs.hi.is:/home/mfs7/iceland-quake-monitoring/frontend/src/components/TimeWindowSlider.jsx
+
+scp -r "F:\Upload to pluto\iceland-quake-monitoring\frontend\dist\*" `
+    mfs7@pluto.cs.hi.is:/home/mfs7/iceland-quake-monitoring/frontend/dist/
+
+scp "F:\Upload to pluto\iceland-quake-monitoring\frontend\.env" `
+    mfs7@pluto.cs.hi.is:/home/mfs7/iceland-quake-monitoring/frontend/.env
+
+# 4) SSH into Pluto
+ssh mfs7@pluto.cs.hi.is
+
+# 5) Stop the running backend server
+pkill -f "gunicorn.*app:app"
+
+# 6) Ensure deploy.sh is executable (one-time)
+cd ~/iceland-quake-monitoring/bin
+chmod +x deploy.sh
+
+# 7) Run the deployment script (copies frontend/dist→backend/dist & restarts)
+./deploy.sh
+
+------------------------------------------
 
 stress test command : 
 
@@ -19,33 +55,31 @@ thquakes
 
 ------------------------------------------------
 
-•	Earth quakes -> squares (middle is earthquake)  ------- Done (MapComponent.jsx)
-•	Improve time interval slider (see screen shot) -- done
-•	Flashing thing is funny, Make it easy to turn it off. Let's discuss flashing next week.
-•	Also, discuss depth display next week
-•	Run performance tool on Pluto --------- Done
-•	Explain what the performance is measuring in the thesis
-•	Discuss your trial of OpenStreetMap in the thesis
-•	Try at some point 10-20 different computers access the website simultaneously 
-•	Update earthquakes every 10 seconds. ---------- Done (App.jsx)
+Thick lines on time slider at beginning of year instead of 1st July (labels where they are) -- 
+Done on local and server side
 
+fix about page on local version --
+Done on both versions
 
-------------------------------------------------
+Space missing before (scroll...) -- Done
 
-make it live --- issues
+"Play button" ? Keep length of time window but shift it forward by one month each 5 seconds (continuously)????
 
----------------------------------------------
+Don't make the magnitude slider optional -- Done on both versions
 
-make the squares half as big --- done
+Big jump from 5 months to 28 days?? -- Fixed
 
-magnitude scale slider as well, put a button (turn on and off as well) ------ done 
+Make it work on a phone?? 
 
-fix the cross view thing and add on and off bitton for it as well -- done (on and off not added)
+Select color map?? -- Not doing
 
-make the circlce smaller, absolute ---- done
+Show size with different size markers (as an option) ??? -- Not doing
 
-turn of the volcanos when the application starts --- done
+remove the volcano circle, bigger size, more intense orange color --- done
 
-Remove earthquakes with depth >= 25km
+bring the larger earthquakes on top -- done
 
----------------------------------------
+check the database thung (functionality), espacially on pluto
+
+check for the possibilities of creating a mobile version. if not possible, still mention about it 
+in documentation

@@ -18,9 +18,10 @@ const TimeWindowSlider = ({ onFilterChange }) => {
   const [viewOffset, setViewOffset] = useState(1.0);
 
   // Determine mode.
-  const isDayViewMode = zoomLevel < 0.1;
-  const isYearMode = zoomLevel >= 0.95; // Fully zoomed out = year mode.
-
+  const isDayViewMode = zoomLevel < 0.04;
+  const isWeekMode    = !isDayViewMode && zoomLevel < 0.15;
+  const isYearMode    = zoomLevel >= 0.95; // Fully zoomed out = year mode.
+  
   // Slow interaction constants.
   const DRAG_SLOW_FACTOR = isDayViewMode ? 0.1 : 2.0; // Faster speed for both modes
   const ZOOM_SLOW_FACTOR_DAY = 0.001;
@@ -56,10 +57,31 @@ const TimeWindowSlider = ({ onFilterChange }) => {
         lastVisibleDate.setTime(currentDate.getTime());
       }
       return { firstVisibleDate, lastVisibleDate, isDayView: true };
-    } else if (isYearMode) {
+    } else if (isWeekMode) {
+      // Weeks mode: 4 → 3 → 2 → 1 week(s) as you zoom in
+        const weeksToShow =
+          zoomLevel < 0.06 ? 1 :
+          zoomLevel < 0.09 ? 2 :
+          zoomLevel < 0.12 ? 3 : 4;
+       const daysToShow = weeksToShow * 7;
+        const maxOffset = Math.max(0, totalDays - daysToShow + 1);
+        const dayOffset = Math.round(viewOffset * maxOffset);
+        const firstVisibleDate = new Date(startDate);
+        firstVisibleDate.setDate(startDate.getDate() + dayOffset);
+        const lastVisibleDate = new Date(firstVisibleDate);
+        lastVisibleDate.setDate(firstVisibleDate.getDate() + daysToShow - 1);
+        if (lastVisibleDate > currentDate) {
+          lastVisibleDate.setTime(currentDate.getTime());
+        }
+        return { firstVisibleDate, lastVisibleDate, isWeekMode: true };
+      } else if (isYearMode) {
       return { firstVisibleDate: startDate, lastVisibleDate: currentDate, isDayView: false, isYearMode: true };
     } else {
-      const visibleMonths = Math.max(1, Math.ceil(totalMonths * zoomLevel));
+      // Months mode: continuous mapping from zoom → span (no jump from years)
+      const visibleMonths = Math.max(
+        1,
+        Math.min(totalMonths, Math.round(totalMonths * zoomLevel))
+      );
       const maxOffset = Math.max(0, totalMonths - visibleMonths);
       const firstVisibleMonthIndex = Math.round(viewOffset * maxOffset);
       const firstVisibleDate = new Date(startDate);
@@ -97,7 +119,7 @@ const TimeWindowSlider = ({ onFilterChange }) => {
   // Debounced parent update.
   const updateParentWithCurrentRange = () => {
     const range = calculateVisibleRange();
-    if (range.isDayView) {
+    if (range.isDayView || range.isWeekMode) {
       onFilterChange(
         range.firstVisibleDate.getFullYear(),
         range.firstVisibleDate.getMonth() + 1,
@@ -178,9 +200,12 @@ const TimeWindowSlider = ({ onFilterChange }) => {
   // Zoom handler.
   const handleWheel = (e) => {
     e.preventDefault();
-    const sensitivity = zoomLevel < 0.1 ? ZOOM_SLOW_FACTOR_DAY : ZOOM_SLOW_FACTOR_OTHER;
-    const zoomFactor = e.deltaY > 0 ? sensitivity : -sensitivity;
-    const newZoomLevel = Math.max(0.01, Math.min(1.0, zoomLevel + zoomFactor));
+    // magnitude-aware zoom: wheel "force" controls step size (clamped)
+    const raw = e.deltaY;
+    const clamped = Math.max(-60, Math.min(60, raw));
+    const k = zoomLevel < 0.1 ? 0.004 : 0.008; // gentler in day/close zoom
+    const scale = Math.exp(clamped * k);
+    const newZoomLevel = Math.max(0.01, Math.min(1.0, zoomLevel * scale));
     setZoomLevel(newZoomLevel);
     if (newZoomLevel >= 1.0) {
       setViewOffset(1.0);
@@ -233,7 +258,7 @@ const TimeWindowSlider = ({ onFilterChange }) => {
           );
         }
       }
-    } else if (isDayViewMode) {
+    } else if (isDayViewMode || isWeekMode) {
       // Day mode: generate one divider per day
       const { firstVisibleDate, lastVisibleDate } = range;
       const oneDay = 24 * 60 * 60 * 1000;
@@ -246,13 +271,13 @@ const TimeWindowSlider = ({ onFilterChange }) => {
       for (let i = 0; i < days; i++) {
         const pos = (i / Math.max(1, days - 1)) * 100;
         
-        // Determine if this is a year boundary (July 1st - start of fiscal year)
-        const isYearBoundary = dividerDate.getMonth() === 6 && dividerDate.getDate() === 1;
+        // Determine if this is a year boundary (January 1st - start of fiscal year)
+        const isYearDivider  = dividerDate.getMonth() === 0 && dividerDate.getDate() === 1;
         
         dividers.push(
           <div
             key={`day-divider-${dividerDate.toISOString()}`}
-            className={isYearBoundary ? "divider divider-year" : "divider divider-day"}
+            className={isYearDivider  ? "divider divider-year" : "divider divider-day"}
             style={{ left: `${pos}%`, height: '100%', top: 0 }}
           />
         );
@@ -267,7 +292,7 @@ const TimeWindowSlider = ({ onFilterChange }) => {
         }
         
         // Add year label directly under July 1st (fiscal year boundary)
-        if (isYearBoundary) {
+        if (dividerDate.getMonth() === 6 && dividerDate.getDate() === 1) {
           labels.push(
             <div key={`year-label-${dividerDate.getFullYear()}`} className="year-label" style={{ left: `${pos}%` }}>
               {dividerDate.getFullYear()}
@@ -289,7 +314,7 @@ const TimeWindowSlider = ({ onFilterChange }) => {
         const pos = (visibleMonths > 1 ? (i / (visibleMonths - 1)) * 100 : 50);
         
         // Check if this is July (start of fiscal year)
-        const isFiscalYearStart = month === 6; // July = 6 in JS Date
+        const isFiscalYearStart = month === 0; // January = 0 in JS Date
         
         dividers.push(
           <div
@@ -343,8 +368,8 @@ const TimeWindowSlider = ({ onFilterChange }) => {
       </div>
       <div className="selected-date">{formatDateRangeDisplay()}</div>
       <div className="zoom-indicator">
-        {isDayViewMode ? "Day view" : isYearMode ? "Year view" : "Month view"} 
-        (scroll to zoom {zoomLevel < 0.5 ? "time window, drag to shift" : "time window, drag to shift"})
+        {isDayViewMode ? " Day view " : isYearMode ? " Year view " : " Month view "}  
+        ( scroll to zoom {zoomLevel < 0.5 ? "time window, drag to shift" : "time window, drag to shift "})
       </div>
     </div>
   );
