@@ -5,9 +5,11 @@ import CrossSectionView from "./CrossSectionView";
 import VolcanoMarker from "./VolcanoMarker";
 import './MapComponent.css';
 
+const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 480px)").matches;
+
 const mapContainerStyle = {
-    width: "100vw",
-    height: "100vh",
+  width: "100vw",
+  height: isMobile ? "100dvh" : "100vh",
 };
 
 const center = { lat: 64.9631, lng: -19.0208 };
@@ -639,35 +641,77 @@ const MapComponent = ({ earthquakes, volcanoes = [], maxMagnitude, onMapTypeChan
                     }} />
                 </div>
 
-                {/* Volcano Toggle Button - New container class */}
-                <div className="volcano-toggle-container">
-                    <div className="volcano-toggle">
-                        <label className="switch">
-                            <input 
-                                type="checkbox" 
-                                checked={showVolcanoes} 
-                                onChange={toggleVolcanoes} 
-                            />
-                            <span className="slider round"></span>
-                        </label>
-                        <span className="toggle-label">Show volcanoes</span>
-                    </div>
-                </div>
-                
-                {/* Grid Toggle Button */}
-                <div className="grid-toggle-container">
-                    <div className="volcano-toggle grid-toggle">
-                        <label className="switch">
-                            <input 
-                                type="checkbox" 
-                                checked={showGrid} 
-                                onChange={toggleGrid} 
-                            />
-                            <span className="slider round"></span>
-                        </label>
-                        <span className="toggle-label">Show lat-lon grid</span>
-                    </div>
-                </div>
+                {/* Toggles */}
+                {!isMobile ? (
+                    <>
+                        {/* Desktop: keep original positions (left side) */}
+                        <div className="volcano-toggle-container">
+                            <div className="volcano-toggle">
+                                <label className="switch">
+                                    <input
+                                        type="checkbox"
+                                        checked={showVolcanoes}
+                                        onChange={toggleVolcanoes}
+                                    />
+                                    <span className="slider round"></span>
+                                </label>
+                                <span className="toggle-label">Show volcanoes</span>
+                            </div>
+                        </div>
+
+                        <div className="grid-toggle-container">
+                            <div className="volcano-toggle grid-toggle">
+                                <label className="switch">
+                                    <input
+                                        type="checkbox"
+                                        checked={showGrid}
+                                        onChange={toggleGrid}
+                                    />
+                                    <span className="slider round"></span>
+                                </label>
+                                <span className="toggle-label">Show lat-lon grid</span>
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        {/* Mobile: stack under Magnitude Scale (right side) */}
+                        <div className="mobile-toggle-stack">
+                            <div className="toggle-chip">
+                                <label className="switch">
+                                    <input
+                                        type="checkbox"
+                                        checked={showVolcanoes}
+                                        onChange={toggleVolcanoes}
+                                    />
+                                    <span className="slider round"></span>
+                                </label>
+                                {/* volcano icon same shape/size/color as map markers */}
+                                <img
+                                    className="toggle-icon"
+                                    alt="volcano"
+                                    src={`data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+                                        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
+                                           <path fill="#ff3c00ff" d="M12,2L2,22h20L12,2z M12,17c-0.6,0-1-0.4-1-1s0.4-1,1-1s1,0.4,1,1S12.6,17,12,17z"/>
+                                         </svg>`
+                                    )}`}
+                                />
+                            </div>
+
+                            <div className="toggle-chip">
+                                <label className="switch">
+                                    <input
+                                        type="checkbox"
+                                        checked={showGrid}
+                                        onChange={toggleGrid}
+                                    />
+                                    <span className="slider round"></span>
+                                </label>
+                                <span className="toggle-text">lat-lon</span>
+                            </div>
+                        </div>
+                    </>
+                )}
                 
                 <GoogleMap 
                     mapContainerStyle={mapContainerStyle} 
@@ -743,27 +787,42 @@ const MapComponent = ({ earthquakes, volcanoes = [], maxMagnitude, onMapTypeChan
                         />
                     ))}
 
-                    {/* Earthquake Info Window */}
+                    {/* Earthquake Info Window (mobile-aware) */}
                     {selectedEarthquake && (
-                        <div className={`earthquake-info ${depthAnimationActive ? 'showing-depth' : ''}`}>
-                            <p><b>Magnitude: {selectedEarthquake.Mw_mean || "N/A"}</b></p>
-                            <p><strong>Depth:</strong> {selectedEarthquake.Depth} km</p>
-                            <p><strong>Time:</strong> {selectedEarthquake["Date-time"]}</p>
-                            <p><strong>Latitude:</strong> {selectedEarthquake.Latitude}</p>
-                            <p><strong>Longitude:</strong> {selectedEarthquake.Longitude}</p>
-                            <div className="depth-visualization-info">
-                                <p className="pulsing-text">
-                                    <span className="pulse-icon">⊙</span> 
-                                    Visualizing depth: {selectedEarthquake.Depth} km
-                                </p>
-                            </div>
-                            <button onClick={() => {
-                                cleanupDepthVisualization();
-                                setSelectedEarthquake(null);
-                                setShowCrossSection(false);
-                            }}>Close</button>
+                    <div className={`earthquake-info ${depthAnimationActive ? 'showing-depth' : ''}`}>
+                        <p><b>Magnitude: {selectedEarthquake.Mw_mean ?? "N/A"}</b></p>
+                        <p><strong>Depth:</strong> {selectedEarthquake.Depth} km</p>
+
+                        {/* Time: inline on desktop, line-break on mobile */}
+                        <p className="eq-time">
+                        <strong>Time:</strong>
+                        {isMobile ? (<><br />{selectedEarthquake["Date-time"]}</>) : (<> {selectedEarthquake["Date-time"]}</>)}
+                        </p>
+
+                        {/* Short labels */}
+                        <p><strong>Lat:</strong> {selectedEarthquake.Latitude}</p>
+                        <p><strong>Lon:</strong> {selectedEarthquake.Longitude}</p>
+
+                        {/* Hide depth line + Close button on mobile */}
+                        {!isMobile && (
+                        <div className="depth-visualization-info">
+                            <p className="pulsing-text">
+                            <span className="pulse-icon">⊙</span>
+                            Visualizing depth: {selectedEarthquake.Depth} km
+                            </p>
                         </div>
+                        )}
+
+                        {!isMobile && (
+                        <button onClick={() => {
+                            cleanupDepthVisualization();
+                            setSelectedEarthquake(null);
+                            setShowCrossSection(false);
+                        }}>Close</button>
+                        )}
+                    </div>
                     )}
+
                     
                     {/* Volcano Info Window */}
                     {selectedVolcano && (
@@ -786,11 +845,13 @@ const MapComponent = ({ earthquakes, volcanoes = [], maxMagnitude, onMapTypeChan
                     )}
                     
                     {/* Cross-section view component */}
-                    <CrossSectionView 
+                    {!isMobile && (
+                        <CrossSectionView 
                         earthquake={selectedEarthquake} 
                         visible={showCrossSection} 
                         maxDepth={30} // Adjust based on your data
-                    />
+                        />
+                    )}
                 </GoogleMap>
             </div>
         </LoadScript>

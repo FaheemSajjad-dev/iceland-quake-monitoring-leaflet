@@ -28,8 +28,11 @@ scp "F:\Upload to pluto\iceland-quake-monitoring\frontend\src\components\TimeWin
 scp -r "F:\Upload to pluto\iceland-quake-monitoring\frontend\dist\*" `
     mfs7@pluto.cs.hi.is:/home/mfs7/iceland-quake-monitoring/frontend/dist/
 
-scp "F:\Upload to pluto\iceland-quake-monitoring\frontend\.env" `
-    mfs7@pluto.cs.hi.is:/home/mfs7/iceland-quake-monitoring/frontend/.env
+scp "F:\Upload to pluto\iceland-quake-monitoring\frontend\src\components\MapComponent.jsx" `
+    mfs7@pluto.cs.hi.is:/home/mfs7/iceland-quake-monitoring/frontend/src/components/MapComponent.jsx
+
+scp "F:\Upload to pluto\iceland-quake-monitoring\frontend\src\components\MapComponent.css" `
+    mfs7@pluto.cs.hi.is:/home/mfs7/iceland-quake-monitoring/frontend/src/components/MapComponent.css
 
 # 4) SSH into Pluto
 ssh mfs7@pluto.cs.hi.is
@@ -69,7 +72,7 @@ Don't make the magnitude slider optional -- Done on both versions
 
 Big jump from 5 months to 28 days?? -- Fixed
 
-Make it work on a phone?? 
+Make it work on a phone?? -- Figured Out
 
 Select color map?? -- Not doing
 
@@ -79,7 +82,54 @@ remove the volcano circle, bigger size, more intense orange color --- done
 
 bring the larger earthquakes on top -- done
 
-check the database thung (functionality), espacially on pluto
+check the database thing (functionality), espacially on pluto -- SQLlite on both versions
 
 check for the possibilities of creating a mobile version. if not possible, still mention about it 
 in documentation
+
+Security Aspect to be done 
+
+Chapter on "Meeting with MET office"
+
+try to render fast after every change (reloading, updating)
+
+zooming in on TimeWindowSlider in mobile is imposible fix it--
+
+change the domain
+
+check vafri.is
+
+litrature review should be chapter 3 in documentation
+
+fast rendering while updating and changing data
+
+
+----------------------------------------
+
+Notes MET Office:
+
+Color according to time
+
+color by date/magnitude
+
+timescale color maybe to rainbow color 
+
+larger symbol for larger earthquakes
+
+depth and locations are not exact
+
+location and depth is more reliable on skjaftalifa API (using quakefiler api (media type: csv))
+
+epos api on the same webapp (for shakemap)
+
+magnitude is more authentic on ja/Mpgv
+
+change the pulse, a highlight instead
+
+depth animation and depth is not informative
+
+earthquake colours 
+
+iclandic earthquake.is
+
+volcano list from epos api the same website

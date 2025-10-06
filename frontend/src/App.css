@@ -23,9 +23,9 @@ html, body, #root {
 /* Header and Controls */
 .controls {
   position: absolute;
-  top: 15px;
+  top: 4px;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(-40%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -124,15 +124,10 @@ input:checked + .slider:before {
   border-radius: 50%;
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .controls h1 {
-    font-size: 18px;
-  }
-  
-  .toggle-label {
-    font-size: 12px;
-  }
+/* Phone-only adjustments (keep iPads = desktop) */
+@media (max-width: 480px) {
+  .controls h1 { font-size: 18px; }
+  .toggle-label { font-size: 12px; }
 }
 
 /*About Page*/
@@ -157,4 +152,25 @@ input:checked + .slider:before {
   top: 10px;
   right: 5px;
   z-index: 11;
+}
+
+/*----------------------*/
+
+/* Mobile: use dynamic viewport height so positioning matches the visible area */
+@media (max-width: 480px) {
+  html, body, #root, .app-container, .map-container {
+    height: 100dvh;  /* replaces 100vh when supported */
+    min-height: 100svh;
+  }
+}
+
+/*--------------------------*/
+
+@media (max-width: 480px) {
+  .controls {
+    top: calc(env(safe-area-inset-top) + 4px);
+  }
+  .about-button-container {
+    top: calc(env(safe-area-inset-top) + 10px);
+  }
 }

@@ -165,22 +165,131 @@
   height: auto; /* Allow container to expand */
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
+/* Phone-only adjustments (keep iPads = desktop) */
+@media (max-width: 480px) {
+  .time-window-slider-container { width: 65%; }
+  .day-labels { height: 36px; }
+  .day-label  { font-size: 9px; }
+  .month-label { font-size: 10px; top: 16px; }
+}
+
+
+
+/*--------------------------
+
+/* Mobile: hide the zoom-indicator entirely */
+@media (max-width: 480px) {
+  .zoom-indicator {
+    display: none !important;
+  }
+}
+
+/* Mobile: fix the slider to the viewport and sit just above any bottom bar/notch */
+@media (max-width: 480px) {
   .time-window-slider-container {
-    width: 65%; /* Reduced from 70% */
+    position: fixed;              /* key: relative to viewport, not the map */
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1100;
+
+    /* fallback so it’s lifted even on old browsers */
+    bottom: 24px !important;
   }
-  
+
+  /* modern engines: use safe area */
+  @supports (bottom: max(0px)) {
+    .time-window-slider-container {
+      bottom: max(24px, env(safe-area-inset-bottom) + 10px) !important;
+    }
+  }
+
+  /* legacy iOS fallback */
+  .time-window-slider-container {
+    bottom: max(24px, constant(safe-area-inset-bottom) + 10px) !important;
+  }
+}
+
+/* Phone-only: bigger touch target + zoom buttons */
+@media (max-width: 480px) {
+  .timeline-slider {
+    height: 64px;           /* was 40px → more vertical room */
+  }
+  .timeline-track {
+    height: 28px;           /* was 18px */
+    top: 12px;              /* was 8px */
+    border-radius: 6px;
+  }
+  .timeline-track.dragging {
+    height: 30px;           /* keep a bit taller while dragging */
+    top: 11px;
+  }
+
+  /* + / − buttons */
+  .tw-zoom-buttons {
+    position: absolute;
+    right: 8px;
+    bottom: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 2;
+  }
+  .tw-zoom-btn {
+    width: 36px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid rgba(0,0,0,0.15);
+    background: rgba(255,255,255,0.95);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    font-size: 18px;
+    line-height: 1;
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tw-zoom-btn:active {
+    transform: translateY(1px);
+  }
+}
+
+/* Phone-only: labels below the bar + sharper zoom buttons placed outside */
+@media (max-width: 480px) {
+  /* The track is top:12px; height:28px in our mobile styles.
+     Put labels *under* the track with a little gap. */
+  .year-labels,
   .day-labels {
-    height: 36px; /* Reduced from 40px */
+    top: calc(12px + 28px + 8px); /* 12(top) + 28(height) + 8(gap) */
+    height: auto;                 /* let them take the space they need */
   }
-  
-  .day-label {
-    font-size: 9px;
+
+  /* Give the container extra padding on the right so the
+     outside buttons never overlap the white card’s edge. */
+  .time-window-slider-container {
+    padding-right: 72px; /* room for the buttons stack */
   }
-  
-  .month-label {
-    font-size: 10px;
-    top: 16px; /* Reduced from 18px */
+
+  /* Move the zoom buttons visually *outside* the slider card */
+  .tw-zoom-buttons {
+    position: absolute;
+    right: -70px;   /* negative = outside the card */
+    bottom: -12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 2;
   }
+  .tw-zoom-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;                 /* sharper corners */
+    border: 1px solid rgba(0,0,0,0.2);
+    background: rgba(255,255,255,0.98);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+    font-size: 20px;
+    line-height: 1;
+    font-weight: 700;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tw-zoom-btn:active { transform: translateY(1px); }
 }

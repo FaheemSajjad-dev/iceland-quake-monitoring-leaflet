@@ -234,3 +234,107 @@
 .grid-toggle input:focus + .slider {
   box-shadow: 0 0 1px #2196F3;
 }
+
+@media (max-width: 480px) {
+  .cross-section-container {display: none !important;}
+}
+
+@media (max-width: 480px) {
+  .earthquake-info {
+    left: 12px;
+    right: 12px;
+    top: auto;
+    bottom: 26%;
+    max-width: 150px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background-color: rgba(255,255,255,0.85);
+    backdrop-filter: blur(2px);
+  }
+  .earthquake-info p { margin: 4px 0; font-size: 13px; }
+  .earthquake-info b { font-size: 14px; }
+  .earthquake-info.showing-depth { border-left-width: 3px; }
+  .earthquake-info .eq-time { word-break: break-word; }
+}
+
+/* === Mobile-only reposition of toggles under Magnitude Scale === */
+@media (max-width: 480px) {
+  /* The magnitude scale is at right:12px, top:42% (see MagnitudeScale.css).
+     We'll place the toggle stack just below it. */
+  .mobile-toggle-stack {
+    position: absolute;
+    right: 10px;
+    top: calc(42% + 160px); /* push below the scale bar */
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 1001;
+  }
+
+  /* Make the chip compact and touch-friendly */
+  .toggle-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 6px 10px;
+    border-radius: 999px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    backdrop-filter: blur(2px);
+  }
+
+  .toggle-icon {
+    width: 20px;
+    height: 20px;
+    display: block;
+    margin-left: 6px;
+  }
+
+  .toggle-text {
+    font-size: 12px;
+    color: #333;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+
+  /* We’re using the mobile stack instead of the left-side containers */
+  .volcano-toggle-container,
+  .grid-toggle-container {
+    display: none !important;
+  }
+}
+
+/*---------------------*/
+
+/* ——— Always use dark text inside the light info cards ——— */
+.earthquake-info,
+.earthquake-info p,
+.earthquake-info strong,
+.earthquake-info b,
+.earthquake-info .eq-time {
+  color: #111 !important;      /* readable on the light card */
+  text-shadow: none !important; /* prevent any inherited shadows */
+}
+
+/* keep the pulsing depth line red if shown (desktop only) */
+.earthquake-info .pulsing-text {
+  color: #d43131 !important;
+}
+
+/* Volcano card text colors */
+.volcano-info,
+.volcano-info p,
+.volcano-info strong,
+.volcano-info b {
+  color: #222 !important;       /* default copy on the card */
+  text-shadow: none !important;
+}
+
+/* keep the custom accent colors you already use */
+.volcano-info h3 { color: #FF5722 !important; }
+.volcano-info .elevation { color: #775533 !important; }
+.volcano-info .eruption  { color: #D50000 !important; }
+
+/* optional: if you ever render links inside either card */
+.earthquake-info a,
+.volcano-info a { color: #0b57d0 !important; }

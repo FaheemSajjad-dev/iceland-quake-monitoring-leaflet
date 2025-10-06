@@ -29,7 +29,7 @@ const About = ({ onClose }) => {
           <section className="about-section">
             <h3>Overview</h3>
             <p>
-              This app visualizes earthquakes (M ≥ 3.0) across Iceland in
+              This is an MS Project at HI (Haskoli Islands). It visualizes earthquakes (M ≥ 3.0) across Iceland in
               near real-time, sourced from the Icelandic Met Office (MPGV).
               Browse events by date, view depth cross-sections, and toggle
               volcano locations.
@@ -40,27 +40,32 @@ const About = ({ onClose }) => {
             <h3>Contact</h3>
             <p>
               For feedback or support, email{' '}
-              <a href="mailto:dummy@quake-monitor.com">dummy@quake-monitor.com</a>
+              <br/>
+              <a href="mailto:mfs7@hi.is">mfs7@hi.is</a>
+              <br/>
+              <a href="malito:jonasson@hi.is">jonasson@hi.is</a>
+              <br/>
+              <a href="malito:esa@hi.is">esa@hi.is</a>
             </p>
           </section>
 
           <section className="about-section">
             <h3>Credits</h3>
             <ul>
-              <li>Lead Developer: --</li>
-              <li>Data Integration: --</li>
-              <li>UX Design: --</li>
+              <li>Muhammad Faheem Sajjad</li>
+              <li>Kristjan Jonasson</li>
+              <li>Esa Olavi Hyytia</li>
             </ul>
           </section>
 
-          <section className="about-section disclaimer">
+          {/* <section className="about-section disclaimer">
             <h3>Disclaimer</h3>
             <p>
               This web application is optimized for desktop browsers and may
               not function correctly on mobile devices. For best experience,
               please use a laptop or desktop computer.
             </p>
-          </section>
+          </section> */}
           
         </div>
 

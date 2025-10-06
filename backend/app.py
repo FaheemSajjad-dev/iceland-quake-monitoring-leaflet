@@ -7,14 +7,14 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# Get the path of the current script file
+# Getting the path of the current script file
 CURRENT_FILE_PATH = os.path.dirname(os.path.abspath(__file__))
 
-# Define the data directory path relative to this file
+# Defining the data directory path relative to this file
 DB_DIR = os.path.join(CURRENT_FILE_PATH, "data")
 os.makedirs(DB_DIR, exist_ok=True)
 
-# Define the database path
+# Defining the database path
 DB_PATH = os.path.join(DB_DIR, "earthquakes.db")
 
 print(f"Using database at: {DB_PATH}")

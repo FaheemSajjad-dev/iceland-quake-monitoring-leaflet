@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import './TimeWindowSlider.css';
 
+const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 480px)").matches;
+
 const TimeWindowSlider = ({ onFilterChange }) => {
   // Starting date: June 1, 2020.
   const startDate = new Date(2020, 5, 1);
@@ -226,6 +228,53 @@ const TimeWindowSlider = ({ onFilterChange }) => {
     };
   }, [zoomLevel, viewOffset, isDayViewMode]);
 
+  // Touch drag support (mobile)
+  const handleTouchStart = (e) => {
+    if (!trackRef.current) return;
+    const t = e.touches[0];
+    isDraggingRef.current = true;
+    dragStartXRef.current = t.clientX;
+    dragStartOffsetRef.current = viewOffset;
+    trackRef.current.classList.add("dragging");
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDraggingRef.current || !trackRef.current) return;
+    const t = e.touches[0];
+    const trackWidth = trackRef.current.offsetWidth;
+    const deltaX = t.clientX - dragStartXRef.current;
+
+    const sensitivityFactor = isDayViewMode ? 0.1 : 2.0;
+    const deltaRatio = (-deltaX / trackWidth) * sensitivityFactor;
+    const newOffset = Math.max(0, Math.min(1, dragStartOffsetRef.current + deltaRatio));
+    setViewOffset(newOffset);
+    e.preventDefault(); // stop page scroll while dragging slider
+  };
+
+  const handleTouchEnd = () => {
+    isDraggingRef.current = false;
+    if (trackRef.current) trackRef.current.classList.remove("dragging");
+  };
+
+  // Zoom buttons (mobile)
+  const zoomIn = () => {
+    // zoom in ⇒ smaller zoomLevel (more detail)
+    setZoomLevel(prev => {
+      const next = Math.max(0.01, prev * 0.8);
+      if (next >= 1.0) setViewOffset(1.0);
+      return next;
+    });
+  };
+
+  const zoomOut = () => {
+    // zoom out ⇒ larger zoomLevel (more span)
+    setZoomLevel(prev => {
+      const next = Math.min(1.0, prev * 1.25);
+      if (next >= 1.0) setViewOffset(1.0);
+      return next;
+    });
+  };
+
   // --- Divider Generation ---
   const generateDividers = () => {
     const dividers = [];
@@ -359,17 +408,31 @@ const TimeWindowSlider = ({ onFilterChange }) => {
           ref={trackRef}
           style={trackStyle}
           onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
           {dividers}
         </div>
+
+        {/* Labels under the track */}
         <div className={isDayViewMode ? "day-labels" : "year-labels"}>
           {labels}
         </div>
+
+        {/* Zoom buttons only for mobile */}
+        {isMobile && (
+          <div className="tw-zoom-buttons" aria-hidden="false">
+            <button type="button" className="tw-zoom-btn" onClick={zoomIn}>+</button>
+            <button type="button" className="tw-zoom-btn" onClick={zoomOut}>−</button>
+          </div>
+        )}
       </div>
+
       <div className="selected-date">{formatDateRangeDisplay()}</div>
       <div className="zoom-indicator">
         {isDayViewMode ? " Day view " : isYearMode ? " Year view " : " Month view "}  
-        ( scroll to zoom {zoomLevel < 0.5 ? "time window, drag to shift" : "time window, drag to shift "})
+        ( scroll to zoom {zoomLevel < 0.5 ? "time window, drag to shift" : "time window, drag to shift "} )
       </div>
     </div>
   );
