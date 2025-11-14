@@ -1,42 +1,74 @@
-from flask import Flask, jsonify
+# backend/app.py
+from __future__ import annotations
+
+import os
+import sys
+import logging
+
+import math
+import requests
+
+from datetime import datetime, timedelta, timezone
+
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from apscheduler.schedulers.background import BackgroundScheduler
-import os
 
+# Optional: gzip responses if Flask-Compress is installed
+try:
+    from flask_compress import Compress  # pip install Flask-Compress
+except Exception:  # noqa: BLE001
+    Compress = None
+
+# -----------------------------------------------------------------------------
+# App & DB setup
+# -----------------------------------------------------------------------------
 app = Flask(__name__)
 CORS(app)
+if Compress:
+    Compress(app)
 
-# Getting the path of the current script file
+# quiet down apscheduler logs
+logging.getLogger("apscheduler").setLevel(logging.WARNING)
+
 CURRENT_FILE_PATH = os.path.dirname(os.path.abspath(__file__))
-
-# Defining the data directory path relative to this file
 DB_DIR = os.path.join(CURRENT_FILE_PATH, "data")
 os.makedirs(DB_DIR, exist_ok=True)
-
-# Defining the database path
 DB_PATH = os.path.join(DB_DIR, "earthquakes.db")
-
 print(f"Using database at: {DB_PATH}")
 
-# Configure SQLite Database with Thread Safety
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DB_PATH}"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_size": 5, "pool_recycle": 280}
 
 db = SQLAlchemy(app)
 
+# Enable faster, safer writes with SQLite WAL mode (when app starts)
+with app.app_context():
+    try:
+        db.session.execute(db.text("PRAGMA journal_mode=WAL;"))
+        db.session.execute(db.text("PRAGMA synchronous=NORMAL;"))
+        db.session.commit()
+    except Exception:
+        # non-fatal if PRAGMAs aren't supported in some env
+        db.session.rollback()
+
+# -----------------------------------------------------------------------------
+# Models
+# -----------------------------------------------------------------------------
 class Earthquake(db.Model):
+    """MPGV source table (v)."""
     id = db.Column(db.Integer, primary_key=True)
-    date_time = db.Column(db.String, nullable=False)
+    date_time = db.Column(db.String, nullable=False)       # 'YYYY-MM-DD HH:MM:SS' UTC
     latitude = db.Column(db.Float, nullable=False)
     longitude = db.Column(db.Float, nullable=False)
     depth = db.Column(db.Float, nullable=False)
     mw_mean = db.Column(db.Float, nullable=False)
-    
     __table_args__ = (
-        db.UniqueConstraint('date_time', 'latitude', 'longitude', name='unique_earthquake_entry'),
+        db.UniqueConstraint("date_time", "latitude", "longitude", name="unique_earthquake_entry"),
     )
+
 
 class Volcano(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -47,48 +79,163 @@ class Volcano(db.Model):
     latitude = db.Column(db.Float, nullable=False)
     longitude = db.Column(db.Float, nullable=False)
     last_eruption = db.Column(db.String)
-    
     __table_args__ = (
-        db.UniqueConstraint('name', 'latitude', 'longitude', name='unique_volcano_entry'),
+        db.UniqueConstraint("name", "latitude", "longitude", name="unique_volcano_entry"),
     )
 
-def create_tables():
-    """Ensures the database tables are created before running the app."""
+
+class EarthquakeSRaw(db.Model):
+    """Skjálftalísa raw table (s)."""
+    __tablename__ = "earthquake_s_raw"
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.String, unique=True, nullable=False)  # IMO id
+    date_time = db.Column(db.String, index=True, nullable=False)  # 'YYYY-MM-DD HH:MM:SS' UTC
+    latitude = db.Column(db.Float, nullable=False)
+    longitude = db.Column(db.Float, nullable=False)
+    depth = db.Column(db.Float)                                   # km
+    magnitude = db.Column(db.Float)                                # optional
+
+    def __repr__(self) -> str:
+        return f"<SRaw event_id={self.event_id} Mw={self.magnitude} lat={self.latitude} lon={self.longitude}>"
+
+
+class EarthquakeMerged(db.Model):
+    """Display table (merged v⊕s per matching rules)."""
+    __tablename__ = "earthquake_merged"
+    id = db.Column(db.Integer, primary_key=True)
+    date_time = db.Column(db.String, index=True, nullable=False)  # keep MPGV time
+    latitude = db.Column(db.Float, nullable=False)                 # from S when matched, else V
+    longitude = db.Column(db.Float, nullable=False)
+    depth = db.Column(db.Float)                                    # from S when matched, else V
+    mw_mean = db.Column(db.Float, nullable=False)                  # from V
+
+    # provenance / diagnostics
+    status = db.Column(db.String, nullable=False)   # 'matched' | 'v_only'
+    v_src_key = db.Column(db.String)                # optional for diagnostics
+    s_event_id = db.Column(db.String)
+    match_dt_sec = db.Column(db.Float)
+    match_dist_km = db.Column(db.Float)
+    match_dm = db.Column(db.Float)
+
+# --- ShakeMap link cache table ---------------------------------------------
+class ShakeMapLink(db.Model):
+    __tablename__ = "shakemap_links"
+    # primary key: your catalog datetime string (same as EarthquakeMerged.date_time)
+    dt = db.Column(db.String, primary_key=True)
+
+    url_view_file = db.Column(db.String)
+    origin_time   = db.Column(db.String)
+
+    sm_lat  = db.Column(db.Float)
+    sm_lon  = db.Column(db.Float)
+    sm_mag  = db.Column(db.Float)
+    sm_depth= db.Column(db.Float)
+
+    dt_sec  = db.Column(db.Float)   # |Δt| seconds to chosen shakemap
+    dist_km = db.Column(db.Float)   # distance to chosen shakemap
+    dm      = db.Column(db.Float)   # Mw_v - M_shakemap
+
+    status  = db.Column(db.String)  # "valid" | "no_candidate" | "no_valid" | "error"
+    note    = db.Column(db.String)
+
+# -----------------------------------------------------------------------------
+# DB init
+# -----------------------------------------------------------------------------
+def create_tables() -> None:
     with app.app_context():
         db.create_all()
 
-# Ensure database is created before running the scheduler
 create_tables()
 
-def scheduled_scrape():
-    """Scrape earthquake data every 3 minutes and store only new records in SQLite."""
+# -----------------------------------------------------------------------------
+# Scheduled job
+# -----------------------------------------------------------------------------
+def scheduled_scrape() -> None:
+    """
+    Every 3 minutes:
+      1) Scrape MPGV (updates Earthquake)
+      2) Reconcile (write EarthquakeMerged)
+    """
     with app.app_context():
-        # Import here to avoid circular import
-        import sys
+        # avoid circular imports
         sys.path.append(CURRENT_FILE_PATH)
         from scrape import scrape_all_earthquake_data
+        from reconcile import match_and_merge
+
+        # Step 1: scrape MPGV (already filtered at Mw >= 2.7 in scrape.py)
         scrape_all_earthquake_data()
 
-# Initialize and start APScheduler after ensuring SQLAlchemy is ready
-scheduler = BackgroundScheduler()
-scheduler.add_job(scheduled_scrape, "interval", minutes=3)
-scheduler.start()
+        # Step 2: reconcile v & s into merged
+        end = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        start = "2020-06-01 00:00:00"
+        match_and_merge(start, end, min_mag=2.7)
 
-@app.route('/earthquakes', methods=['GET'])
+# Start the scheduler only once (avoid double-start under Flask reloader)
+if not os.environ.get("DISABLE_SCHEDULER"):
+    if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        scheduler = BackgroundScheduler(coalesce=True, misfire_grace_time=60)
+        scheduler.add_job(scheduled_scrape, "interval", minutes=3, max_instances=1)
+        scheduler.start()
+
+# -----------------------------------------------------------------------------
+# Routes
+# -----------------------------------------------------------------------------
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({"message": "Iceland Earthquake Monitoring API is running!"})
+
+
+@app.route("/earthquakes", methods=["GET"])
 def get_earthquake_data():
-    """Returns earthquake data from the database as JSON."""
+    """
+    Returns merged earthquake data.
+    - default: ALL data (to preserve existing frontend behavior)
+    - optional: ?days=NN to limit to recent window
+    - optional: ?days=all explicitly returns all
+    """
+    days_param = (request.args.get("days") or "all").strip().lower()
+
     with app.app_context():
-        quakes = Earthquake.query.order_by(Earthquake.date_time.desc()).all()
+        q = EarthquakeMerged.query
+
+        if days_param != "all":
+            try:
+                days = int(days_param)
+                from datetime import datetime, timezone, timedelta
+                cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+                q = q.filter(EarthquakeMerged.date_time >= cutoff)
+            except ValueError:
+                # bad days param -> fallback to ALL
+                pass
+
+        rows = q.order_by(EarthquakeMerged.date_time.desc()).all()
+
         return jsonify([
             {
-                "Date-time": q.date_time,
-                "Latitude": q.latitude,
-                "Longitude": q.longitude,
-                "Depth": q.depth,
-                "Mw_mean": q.mw_mean
-            }
-            for q in quakes
+                "Date-time": r.date_time,
+                "Latitude":  r.latitude,
+                "Longitude": r.longitude,
+                "Depth":     r.depth,
+                "Mw_mean":   r.mw_mean,
+                "status":    r.status
+            } for r in rows
         ])
+
+@app.route('/scrape-volcanoes', methods=['GET'])
+def scrape_volcanoes():
+    """Fetch and save live volcano data from EPOS Iceland API (discovered automatically)."""
+    try:
+        import sys
+        sys.path.append(CURRENT_FILE_PATH)
+        from volcano_scraper import refresh_volcanoes
+        ok = refresh_volcanoes(DB_PATH)
+        if ok:
+            return jsonify({"message": "EPOS volcanoes fetched & saved."})
+        else:
+            return jsonify({"message": "No volcano data was found from EPOS API."}), 502
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/volcanoes', methods=['GET'])
 def get_volcano_data():
@@ -108,49 +255,160 @@ def get_volcano_data():
             for v in volcanoes
         ])
 
-@app.route('/')
-def home():
-    return jsonify({"message": "Iceland Earthquake Monitoring API is running!"})
-
-@app.route('/scrape-volcanoes', methods=['GET'])
-def scrape_volcanoes():
-    """Endpoint to trigger volcano data scraping."""
-    try:
-        # Import here to avoid circular import
-        import sys
-        sys.path.append(CURRENT_FILE_PATH)
-        from volcano_scraper import get_iceland_volcanoes, save_volcanoes_to_db
-        volcanoes = get_iceland_volcanoes()
-        if volcanoes:
-            save_volcanoes_to_db(volcanoes, DB_PATH)  # Pass DB_PATH explicitly
-            return jsonify({"message": f"Successfully retrieved {len(volcanoes)} volcanoes."})
-        else:
-            return jsonify({"message": "No volcano data was found."})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route('/deep-earthquakes', methods=['GET'])
+@app.route("/deep-earthquakes", methods=["GET"])
 def get_deep_earthquakes():
-    """Returns earthquakes with depth >= 25km from the database as JSON, ordered by depth in descending order."""
+    """
+    Returns events with depth >= 25 km from the MPGV table (v-only),
+    primarily for your 'Deep Earthquakes' panel.
+    """
     with app.app_context():
-        deep_quakes = Earthquake.query.filter(Earthquake.depth >= 25).order_by(Earthquake.depth.desc()).all()
+        deep = (
+            Earthquake.query
+            .filter(Earthquake.depth >= 25)
+            .order_by(Earthquake.depth.desc())
+            .all()
+        )
         result = [
             {
                 "Date-time": q.date_time,
                 "Latitude": q.latitude,
                 "Longitude": q.longitude,
                 "Depth": q.depth,
-                "Mw_mean": q.mw_mean
+                "Mw_mean": q.mw_mean,
             }
-            for q in deep_quakes
+            for q in deep
         ]
-        
+        return jsonify({"count": len(result), "earthquakes": result})
+
+
+@app.route("/reconcile", methods=["POST"])
+def run_reconcile():
+    """
+    Manual trigger to run the reconcile (useful for a button in your UI or Postman).
+    """
+    from reconcile import match_and_merge
+    end = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    start = "2020-06-01 00:00:00"
+    match_and_merge(start, end, min_mag=2.7)
+    return jsonify({"message": "Reconcile completed"}), 200
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    """
+    Quick stats to verify the pipeline is healthy.
+    """
+    with app.app_context():
         return jsonify({
-            "count": len(result),
-            "earthquakes": result
+            "MPGV": Earthquake.query.count(),
+            "Skjalftalisa": EarthquakeSRaw.query.count(),
+            "Merged": EarthquakeMerged.query.count(),
         })
 
-if __name__ == '__main__':
+
+# --- Simple EPOS shakemap lookup for one event -------------------------------
+def _km_distance(lat1, lon1, lat2, lon2):
+    # quick haversine (km)
+    R = 6371.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dlat = p2 - p1
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dlon/2)**2
+    return 2 * R * math.asin(min(1, math.sqrt(a)))
+
+@app.route("/shakemap_lookup", methods=["GET"])
+def shakemap_lookup():
+    """
+    Query EPOS /seismic/shakemaps around the event time/loc and return a view URL if found.
+    Params: dt=YYYY-MM-DD HH:MM:SS, lat=..., lon=...
+    """
+    dt_str = (request.args.get("dt") or "").strip()
+    lat = request.args.get("lat", type=float)
+    lon = request.args.get("lon", type=float)
+    if not dt_str or lat is None or lon is None:
+        return jsonify({"found": False, "reason": "missing parameters"}), 400
+
+    # parse event time (treat as UTC)
+    try:
+        # support both "YYYY-MM-DD HH:MM:SS" and ISO "YYYY-MM-DDTHH:MM:SS"
+        dt_str_norm = dt_str.replace("T", " ")
+        evt_dt = datetime.strptime(dt_str_norm[:19], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    except Exception:
+        return jsonify({"found": False, "reason": "bad dt format"}), 400
+
+    # search window & Iceland bbox
+    window = timedelta(hours=6)  # generous to be safe
+    start_time = (evt_dt - window).strftime("%Y-%m-%dT%H:%M:%S")
+    end_time   = (evt_dt + window).strftime("%Y-%m-%dT%H:%M:%S")
+    bbox = "62.8,-25.0,67.0,-12.5"
+
+    url = (
+        "https://api.epos-iceland.is/v1/seismic/shakemaps"
+        f"?start_time={start_time}&end_time={end_time}&bbox={bbox}"
+    )
+
+    try:
+        r = requests.get(url, timeout=20)
+        r.raise_for_status()
+        items = r.json() if isinstance(r.json(), list) else []
+    except Exception as e:
+        return jsonify({"found": False, "reason": f"fetch error: {e}"}), 502
+
+    # pick the closest in time+space with simple thresholds
+    best = None
+    best_score = 1e18
+    for it in items:
+        try:
+            ot = it.get("origin_time") or ""
+            ot_norm = ot.replace("T", " ").replace("Z", "")
+            dt = datetime.strptime(ot_norm[:19], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+            dmin = abs((dt - evt_dt).total_seconds()) / 60.0
+            dkm = _km_distance(lat, lon, float(it["latitude"]), float(it["longitude"]))
+            # combine; time weighs more than distance here
+            score = dmin * 3 + dkm
+            if score < best_score:
+                best_score = score
+                best = {**it, "dmin": dmin, "dkm": dkm}
+        except Exception:
+            continue
+
+    # only accept if reasonably close
+    if not best:
+        return jsonify({"found": False})
+    if best["dmin"] > 180 or best["dkm"] > 200:
+        return jsonify({"found": False})
+
+    view_url = (best.get("url_view_file") or "").strip()
+    if not view_url:
+        return jsonify({"found": False})
+
+    return jsonify({
+        "found": True,
+        "url": view_url,
+        "origin_time": best.get("origin_time"),
+        "minutes_diff": round(best["dmin"], 1),
+        "distance_km": round(best["dkm"], 1),
+    })
+
+
+# --- Return validated ShakeMap URL for an event -----------------------------
+@app.route("/shakemap/<dt>", methods=["GET"])
+def shakemap(dt):
+    link = ShakeMapLink.query.get(dt)
+    if not link or link.status != "valid":
+        return {"available": False}, 200
+    return {
+        "available": True,
+        "url": link.url_view_file,
+        "dt_sec": link.dt_sec,
+        "dist_km": link.dist_km,
+        "dm": link.dm
+    }, 200
+
+
+# -----------------------------------------------------------------------------
+# Entrypoint
+# -----------------------------------------------------------------------------
+if __name__ == "__main__":
     print(f"Starting server with database at: {DB_PATH}")
     app.run(debug=True)

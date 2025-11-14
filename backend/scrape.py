@@ -21,7 +21,7 @@ print(f"Scraper will use database at: {DB_PATH}")
 
 # Import app-related components only when running within Flask context
 try:
-    # Try to import from app, but be prepared for it to fail
+    # We will try to import from app, but be prepared for it to fail
     # if running as standalone script
     from app import app, db, Earthquake
     USING_FLASK = True
@@ -32,7 +32,7 @@ except (ImportError, ModuleNotFoundError):
 BASE_URL = 'http://hraun.vedur.is/ja/Mpgv/'
 
 def get_monthly_data(year, month):
-    """Scrapes data for a specific month and filters by magnitude >= 3.0."""
+    """Scrapes data for a specific month and filters by magnitude >= 2.7."""
     url = f"{BASE_URL}{year}/{year}-{str(month).zfill(2)}.html"
     response = requests.get(url)
     soup = BeautifulSoup(response.content, 'html.parser')
@@ -63,8 +63,8 @@ def get_monthly_data(year, month):
 
             try:
                 mw_mean = float(mw_mean)
-                if mw_mean < 3.0:
-                    continue  # Skip entries with magnitude < 3.0
+                if mw_mean < 2.7:
+                    continue  # Skip entries with magnitude < 2.7
             except ValueError:
                 continue
 
@@ -99,13 +99,13 @@ def _scrape_and_save_with_flask():
 
     new_entries = 0  # Track new records added
 
-    for year in year_links[:1]:  # Limit to most recent year for faster processing
+    for year in year_links:
         year_url = f"{BASE_URL}{year}/"
         year_response = requests.get(year_url)
         year_soup = BeautifulSoup(year_response.content, 'html.parser')
         month_links = sorted([a['href'].strip('.html') for a in year_soup.find_all('a', href=re.compile(r'^\d{4}-\d{2}\.html$'))], reverse=True)
 
-        for month in month_links[:2]:  # Limit to most recent 2 months for faster processing
+        for month in month_links:
             year, month_num = month.split('-')
             monthly_data = get_monthly_data(year, month_num)
 
@@ -119,7 +119,7 @@ def _scrape_and_save_with_flask():
                     db.session.rollback()  # Ignore duplicates
                     continue
 
-    print(f"✔ {new_entries} new earthquake records added to SQLite via Flask.")
+    print(f":) {new_entries} new earthquake records added to SQLite via Flask.")
 
 def _scrape_and_save_with_sqlite():
     """Implementation that uses direct SQLite connection without Flask."""
@@ -172,14 +172,14 @@ def _scrape_and_save_with_sqlite():
                     if cursor.rowcount > 0:
                         new_entries += 1
                 except sqlite3.Error as e:
-                    print(f"SQLite error: {e}")
+                    print(f":( SQLite error: {e}")
                     continue
 
     # Commit changes and close connection
     conn.commit()
     conn.close()
     
-    print(f"✔ {new_entries} new earthquake records added to SQLite via direct connection.")
+    print(f":) {new_entries} new earthquake records added to SQLite via direct connection.")
 
 if __name__ == "__main__":
     scrape_all_earthquake_data()
