@@ -58,78 +58,49 @@ thquakes
 
 ------------------------------------------------
 
-Thick lines on time slider at beginning of year instead of 1st July (labels where they are) -- 
-Done on local and server side
+The core merging logic is defined in backend/reconcile.py. For each MPGV record (v), the system searches for
+Skjálftalísa records (s) that satisfy all three conditions:
+    |t_v − t_s| < 3 seconds
+    dist_km((lat_v,lon_v),(lat_s,lon_s)) < 5 km
+    |Mw_v − Mw_s| < 1.0
+If exactly one matching Skjálftalísa record is found, the system replaces the MPGV location with Skjálftalísa's
+location and depth. Otherwise, the event remains as v_only.
 
-fix about page on local version --
-Done on both versions
+-----------------------------------------------
 
-Space missing before (scroll...) -- Done
+MPGV (Earthquake table): 1,749 events recorded (June 2020 – present) — filtered to Mw ≥ 2.7.
+Skjálftalísa (EarthquakeSRaw): 18,089 raw events from the same period — includes smaller magnitudes.
+Merged (EarthquakeMerged): 1,749 total = 1,385 matched + 364 v_only → 79.19 % coverage.
 
-"Play button" ? Keep length of time window but shift it forward by one month each 5 seconds (continuously)????
+After changing distance difference to 10 km and Mw difference to 2 magnitude, i have got more coverage
 
-Don't make the magnitude slider optional -- Done on both versions
+Total merged rows = 1455 (merged) + 296 (v-only) = 1751
 
-Big jump from 5 months to 28 days?? -- Fixed
+Coverage = 1455 / 1751 = 0.8310 ( 83.10% )
 
-Make it work on a phone?? -- Figured Out
-
-Select color map?? -- Not doing
-
-Show size with different size markers (as an option) ??? -- Not doing
-
-remove the volcano circle, bigger size, more intense orange color --- done
-
-bring the larger earthquakes on top -- done
-
-check the database thing (functionality), espacially on pluto -- SQLlite on both versions
-
-check for the possibilities of creating a mobile version. if not possible, still mention about it 
-in documentation
-
-Security Aspect to be done 
-
-Chapter on "Meeting with MET office"
-
-try to render fast after every change (reloading, updating)
-
-zooming in on TimeWindowSlider in mobile is imposible fix it--
-
-change the domain
-
-check vafri.is
-
-litrature review should be chapter 3 in documentation
-
-fast rendering while updating and changing data
+-----------------------------------------------
 
 
+ShakeMap validation (in shakemap_validator.py) checks for events in EPOS ShakeMap 
+within ±10 minutes and 10 km radius. If a valid match exists, it is stored in ShakeMapLink 
+with status='valid'. Otherwise, the event is labeled 'no_valid' or 'error'.
+
+
+change distance dif to 10 km
+Mw dif can be around 2
+
+to increase the number of matched values // Done // Depth fixed (achieved, matched increased, v-only decreased)
+
+make the toggle (color one) vertical -- maybe later
+
+regarding the timewindow slider, the dates on the text below "DD Month year to DD Month Month", 
+DD should be visible within day zoomings -- Done
+
+Future things if time:
+
+Provide data list somewhere, on webapp or as json (text), update the file every 3 minutes, in the about page as a link.
+
+change the colour scheme of magnitude scale when selected magnitude color option -- Fixed
+
+change the TimeWindowSlider from horizontal to vertical
 ----------------------------------------
-
-Notes MET Office:
-
-Color according to time
-
-color by date/magnitude
-
-timescale color maybe to rainbow color 
-
-larger symbol for larger earthquakes
-
-depth and locations are not exact
-
-location and depth is more reliable on skjaftalifa API (using quakefiler api (media type: csv))
-
-epos api on the same webapp (for shakemap)
-
-magnitude is more authentic on ja/Mpgv
-
-change the pulse, a highlight instead
-
-depth animation and depth is not informative
-
-earthquake colours 
-
-iclandic earthquake.is
-
-volcano list from epos api the same website

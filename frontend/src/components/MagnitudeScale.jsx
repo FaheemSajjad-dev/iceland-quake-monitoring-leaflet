@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import './MagnitudeScale.css';
 
-const MagnitudeScale = ({ minMagnitude, maxMagnitude, onMagnitudeFilterChange }) => {
+const MagnitudeScale = ({ minMagnitude, maxMagnitude, onMagnitudeFilterChange, colorOwner }) => {
+
   const [filterValue, setFilterValue] = useState(minMagnitude);
 
   const handleSliderChange = (e) => {
     const value = parseFloat(e.target.value);
-    // Invert the value calculation to match the vertical slider orientation
     const invertedValue = maxMagnitude - (value - minMagnitude);
     setFilterValue(invertedValue);
     if (onMagnitudeFilterChange) {
@@ -14,23 +14,25 @@ const MagnitudeScale = ({ minMagnitude, maxMagnitude, onMagnitudeFilterChange })
     }
   };
 
-  // Inverted value for the slider position
   const sliderDisplayValue = maxMagnitude - (filterValue - minMagnitude);
 
-  // Position for the live value box alongside the bar
   const getFilterBoxPosition = () => {
     const range = maxMagnitude - minMagnitude;
     const valueRatio = (filterValue - minMagnitude) / range;
-    // Invert position since slider is rotated vertically
     return (1 - valueRatio) * 100;
   };
+
+  // Decide which bar color to show based on colorOwner
+  const barClass = colorOwner === 'magnitude' 
+      ? 'scale-bar-colored'   // show heat ramp
+      : 'scale-bar-gray';     // show neutral gray
 
   return (
     <div className="magnitude-scale vertical">
       <span className="max-value">{maxMagnitude.toFixed(1)}</span>
 
       <div className="scale-container">
-        <div className="scale-bar-vertical"></div>
+        <div className={`scale-bar-vertical ${barClass}`}></div>
 
         <div className="slider-container" style={{ position: "absolute", width: "100%", height: "100%" }}>
           <input

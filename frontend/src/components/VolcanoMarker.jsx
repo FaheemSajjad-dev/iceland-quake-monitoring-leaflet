@@ -28,6 +28,7 @@ const VolcanoMarker = ({ volcano, onSelect }) => {
             icon={volcanoIcon}
             onClick={() => onSelect(volcano)}
             title={volcano.name} // keeps basic browser tooltip on hover
+            options={{zIndex:5}}
         />
     );
 };

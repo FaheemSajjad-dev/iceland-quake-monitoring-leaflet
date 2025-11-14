@@ -50,3 +50,15 @@ export const fetchDeepEarthquakes = async () => {
         return { count: 0, earthquakes: [] };
     }
 };
+
+// Validated ShakeMap (uses strict server-side match)
+export async function fetchShakeMapValidated(dt) {
+  try {
+    const res = await fetch(`${API_URL}/shakemap/${encodeURIComponent(dt)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data && data.available ? data : null; // {url, dt_sec, dist_km, dm}
+  } catch {
+    return null;
+  }
+}

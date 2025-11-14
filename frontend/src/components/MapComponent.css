@@ -213,7 +213,32 @@
   z-index: 1000;
 }
 
+/* New: Color-by-time toggle (above others) */
+.color-toggle-container {
+  position: absolute;
+  bottom: 145px;  /* sits above volcano (100px) and grid (55px) */
+  left: 10px;
+  z-index: 1000;
+}
 
+/* Base: solid backgrounds for all switches */
+.switch .slider { background-color: #ccc; }           /* OFF */
+.switch input:checked + .slider { background-color: #FF5722; } /* ON default (volcano) */
+.switch .slider:before { background-color: #fff; }    /* knob stays solid white */
+
+/* Grid override: solid blue when ON */
+.grid-toggle input:checked + .slider { background-color: #2196F3; }
+
+/* Color-by-time override: solid Twilight anchor when ON */
+.color-toggle input:checked + .slider { background-color: #6a51a3; }
+
+/* Make sure no opacity sneaks in */
+.switch input:checked + .slider,
+.grid-toggle input:checked + .slider,
+.color-toggle input:checked + .slider {
+  opacity: 1 !important;
+  filter: none !important;
+}
 
 /* Add a new class for the volcano toggle container */
 .volcano-toggle-container {
@@ -338,3 +363,33 @@
 /* optional: if you ever render links inside either card */
 .earthquake-info a,
 .volcano-info a { color: #0b57d0 !important; }
+
+
+.color-mode-switch {
+  display: flex;
+  background: rgba(255,255,255,0.9);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  overflow: hidden;
+}
+
+.color-mode-switch button {
+  flex: 1;
+  padding: 6px 10px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  transition: background 0.2s ease;
+}
+
+.color-mode-switch button.active {
+  background: #333;
+  color: #fff;
+}
+
+.color-mode-switch button:hover {
+  background: rgba(0,0,0,0.1);
+}

@@ -1,14 +1,14 @@
-/* Time Window Slider - Conveyor Belt Style */
+/* Time Window Slider - Conveyor Belt Style */ 
 .time-window-slider-container {
   background-color: rgba(250, 250, 250, 0.95);
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  width: 40%;          /* ↑ bumped from 40% up to 50% */
-  max-width: 400px;    /* ↑ bumped from 450px up to 550px */
+  width: 44%;          /* was 40% → slightly wider */
+  max-width: 440px;    /* was 400px → allow a bit more */
   height: fit-content;
-  padding: 10px 20px;  /* ↑ more horizontal padding so labels don’t clip */
+  padding: 8px 18px;   /* was 10px 20px → trims vertical space a bit */
   position: absolute;
-  bottom: 30px;
+  bottom: 40px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
@@ -16,17 +16,17 @@
 }
 
 .timeline-slider {
-  height: 40px; /* Reduced from 45px */
+  height: 36px; /* was 40px → shorter overall bar */
   position: relative;
   width: 100%;
   overflow: visible;
 }
 
 .timeline-track {
-  border: 2px solid #666666;
-  height: 18px; /* Reduced from 20px */
+  border: 1px solid #666666;
+  height: 16px; /* was 18px */
   position: absolute;
-  top: 8px; /* Reduced from 10px */
+  top: 7px;     /* was 8px */
   left: 0;
   right: 0;
   border-radius: 3px;
@@ -42,9 +42,9 @@
 .timeline-track.dragging {
   cursor: grabbing !important;
   filter: brightness(0.9);
-  height: 20px; /* Reduced from 22px */
-  top: 7px; /* Adjusted from 9px */
-  border-color: #c0392b; /* Darker version of the vibrant reddish tone for the active state */
+  height: 18px; /* was 20px */
+  top: 6px;     /* was 7px */
+  border-color: #000000; /* Darker version of the vibrant reddish tone for the active state */
 }
 
 /* Divider base style */
@@ -84,7 +84,7 @@
 .year-labels {
   position: absolute;
   width: 100%;
-  top: 28px; /* Reduced from 32px */
+  top: 26px; /* was 28px */
   height: 14px; /* Reduced from 16px */
   pointer-events: none;
 }
@@ -92,7 +92,7 @@
 .year-label {
   position: absolute;
   transform: translateX(-50%);
-  font-size: 11px; /* Reduced from 12px */
+  font-size: 11px; /* keep for readability */
   color: #333333;
   text-align: center;
   font-weight: 600;
@@ -104,9 +104,9 @@
 }
 
 .selected-date {
-  margin-top: 4px; /* Reduced from 5px */
+  margin-top: 2px; /* was 4px → tighten stack */
   font-weight: 500;
-  font-size: 13px; /* Reduced from 14px */
+  font-size: 13px; /* keep */
   color: #333;
   letter-spacing: 0.2px;
   background-color: rgba(255, 255, 255, 0.7);
@@ -123,7 +123,7 @@
 .day-labels {
   position: absolute;
   width: 100%;
-  top: 28px; /* Reduced from 32px */
+  top: 26px; /* was 28px */
   height: 30px; /* Reduced from 32px */
   pointer-events: none;
 }
@@ -292,4 +292,25 @@
     -webkit-tap-highlight-color: transparent;
   }
   .tw-zoom-btn:active { transform: translateY(1px); }
+}
+
+/* ↓ Add these right after .timeline-track / .timeline-track.dragging */
+.timeline-track.gray {
+  background: linear-gradient(to right, #dcdcdc, #777, #333);
+}
+
+.timeline-track.colored {
+  background: linear-gradient(
+    to right,
+    #e2d9ff,
+    #cbb9f6,
+    #a991e0,
+    #8667c2,
+    #4b2f86,
+    #234078,
+    #30707b,
+    #4b9276,
+    #7bab6d,
+    #b7cf77
+  );
 }

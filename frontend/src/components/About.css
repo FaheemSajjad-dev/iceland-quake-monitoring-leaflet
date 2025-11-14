@@ -55,18 +55,34 @@
   .about-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start; /* bring title and X up nicely aligned */
     border-bottom: 1px solid #eee;
-    padding-bottom: 8px;
+    padding-bottom: 6px;
+    position: relative;
   }
-  
+
   .close-button {
     background: transparent;
     border: none;
-    font-size: 1.2rem;
+    font-size: 1.4rem;
     line-height: 1;
     cursor: pointer;
+    position: relative;
+    top: -4px;              /* move slightly up for better vertical alignment */
+    color: #555;
+    transition: all 0.15s ease-in-out;
+    outline: none;          /* remove focus outline */
   }
+
+  .close-button:focus {
+    outline: none;          /* prevent outline when clicked */
+  }
+
+  .close-button:hover {
+    font-weight: bold;      /* make it bold on hover */
+    color: #000;
+  }
+
   
   .about-body {
     padding: 16px 0;

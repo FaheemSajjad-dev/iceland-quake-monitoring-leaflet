@@ -17,7 +17,8 @@ const App = () => {
     const [maxMagnitude, setMaxMagnitude] = useState(3.0);
     const [isDarkMode, setIsDarkMode] = useState(false);
     const [showVolcanoes, setShowVolcanoes] = useState(false);
-    const [magnitudeFilter, setMagnitudeFilter] = useState(3.0);
+    const [magnitudeFilter, setMagnitudeFilter] = useState(2.7);
+    const [colorOwner, setColorOwner] = useState('timeline');
 
     // State for date range selection - now including days
     const [dateRange, setDateRange] = useState({
@@ -91,7 +92,7 @@ const App = () => {
         const mags = allData
             .map(q => parseFloat(q.Mw_mean))
             .filter(n => !isNaN(n));
-        setMaxMagnitude(mags.length ? Math.max(...mags, 3.0) : 5.8);
+        setMaxMagnitude(mags.length ? Math.max(...mags, 2.7) : 5.8);
     }, [allData, dateRange, magnitudeFilter]);
 
     const handleFilterChange = useCallback((sy, sm, ey, em, sd, ed) => {
@@ -132,7 +133,7 @@ const App = () => {
                     </h1>
                 </div>
 
-                <TimeWindowSlider onFilterChange={handleFilterChange} />
+                <TimeWindowSlider onFilterChange={handleFilterChange} colorOwner={colorOwner} />
 
                 <MapComponent
                     earthquakes={filteredData}
@@ -141,12 +142,16 @@ const App = () => {
                     onMapTypeChange={handleMapTypeChange}
                     showVolcanoes={showVolcanoes}
                     toggleVolcanoes={toggleVolcanoes}
+                    colorOwner={colorOwner}
+                    onChangeColorOwner={setColorOwner}
+                    isDarkMode={isDarkMode}   
                 />
 
                 <MagnitudeScale
-                    minMagnitude={3.0}
+                    minMagnitude={2.7}
                     maxMagnitude={maxMagnitude}
                     onMagnitudeFilterChange={handleMagnitudeFilterChange}
+                    colorOwner={colorOwner}
                 />
             </div>
 

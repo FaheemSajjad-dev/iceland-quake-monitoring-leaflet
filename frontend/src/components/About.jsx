@@ -1,76 +1,178 @@
-import React, { useEffect } from 'react';
-import './About.css';
+import React, { useEffect, useRef } from "react";
+import "./About.css";
+
+const VERSION = "1.0";
 
 const About = ({ onClose }) => {
-  // Close on ESC key
+  const dialogRef = useRef(null);
+  const closeBtnRef = useRef(null);
+
+  // Close on ESC
   useEffect(() => {
-    const handleKey = (e) => {
-      if (e.key === 'Escape') onClose();
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
     };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  // Focus the close button when dialog mounts (simple, non-intrusive focus management)
+  useEffect(() => {
+    closeBtnRef.current?.focus();
+  }, []);
+
+  // Close when clicking the backdrop; keep clicks inside from bubbling out
+  const onBackdropClick = (e) => {
+    if (e.target === dialogRef.current) onClose();
+  };
+
   return (
-    <div className="about-overlay fade-in" role="dialog" aria-modal="true">
-      <div className="about-content card">
+    <div
+      className="about-overlay fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="about-title"
+      aria-describedby="about-desc"
+      ref={dialogRef}
+      onMouseDown={onBackdropClick}
+    >
+      <div
+        className="about-content card"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <header className="about-header">
-          <h2 className="about-title">Iceland MPGV Earthquake Map</h2>
+          <h2 id="about-title" className="about-title">
+            Iceland MPGV Earthquake Map
+          </h2>
           <button
+            ref={closeBtnRef}
             className="close-button"
-            aria-label="Close About"
+            aria-label="Close About window"
             onClick={onClose}
           >
             ×
           </button>
         </header>
 
-        <div className="about-body">
+        <div className="about-body" id="about-desc">
+          {/* ---------- Overview ---------- */}
           <section className="about-section">
             <h3>Overview</h3>
             <p>
-              This is an MS Project at HI (Haskoli Islands). It visualizes earthquakes (M ≥ 3.0) across Iceland in
-              near real-time, sourced from the Icelandic Met Office (MPGV).
-              Browse events by date, view depth cross-sections, and toggle
-              volcano locations.
+              This web application is part of an MSc thesis at the University
+              of Iceland (Háskóli Íslands). It visualizes earthquakes across
+              Iceland in near-real time, focusing on events with magnitude{" "}
+              <strong>M&nbsp;≥&nbsp;2.7</strong>. The primary source is the
+              Icelandic Meteorological Office’s MPGV feed, complemented by
+              additional public datasets.
             </p>
+
+            <p>
+              The system integrates three main data providers:
+              <br />
+              • <strong>MPGV data</strong> — public earthquake listings at{" "}
+              <a
+                href="http://hraun.vedur.is/ja/Mpgv/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                hraun.vedur.is/ja/Mpgv/
+              </a>
+              <br />
+              • <strong>Skjálftalísa API</strong> — detailed event metadata via{" "}
+              <a
+                href="https://api.vedur.is/?urls.primaryName=Skj%C3%A1lftal%C3%ADsa"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                api.vedur.is (Skjálftalísa)
+              </a>
+              <br />
+              • <strong>EPOS API</strong> — volcanic and shakemap information via{" "}
+              <a
+                href="https://api.vedur.is/?urls.primaryName=EPOS"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                api.vedur.is (EPOS)
+              </a>
+            </p>
+
+            <p>
+              The backend continuously reconciles earthquake information from different
+              sources using a custom matching algorithm. Each MPGV event is compared
+              against Skjálftalísa records based on time, location, and magnitude
+              thresholds to identify corresponding events. The merged dataset—combining
+              the most accurate attributes from each source—is then served through an
+              API to the frontend, where it powers the interactive map and visualization
+              features.
+            </p>
+
+
+            <p>
+              Key features include an interactive <strong>timeline color mode</strong> that
+              displays earthquakes by month and a <strong>magnitude color mode</strong> that
+              dynamically shades markers according to their seismic strength. Users can
+              easily switch between these color schemes using dedicated toggle buttons. The
+              system also integrates <strong>ShakeMap data</strong> for visualizing ground
+              motion intensity, <strong>depth cross-sections</strong> for vertical analysis,
+              and <strong>volcano overlays</strong> featuring 33 Icelandic volcanoes with
+              their current status and detailed information retrieved from the
+              <strong> EPOS API</strong>. Explore all features live on the map:
+              <br />
+              <a
+                href="http://pluto.cs.hi.is:9001"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Iceland MPGV Earthquake Map
+              </a>
+            </p>
+
           </section>
 
+          {/* ---------- Contact ---------- */}
           <section className="about-section">
             <h3>Contact</h3>
-            <p>
-              For feedback or support, email{' '}
-              <br/>
-              <a href="mailto:mfs7@hi.is">mfs7@hi.is</a>
-              <br/>
-              <a href="malito:jonasson@hi.is">jonasson@hi.is</a>
-              <br/>
-              <a href="malito:esa@hi.is">esa@hi.is</a>
-            </p>
+            <p>For feedback, collaboration, or support:</p>
+            <ul className="contact-list">
+              <li>
+                <a href="mailto:mfs7@hi.is">mfs7@hi.is</a>
+              </li>
+              <li>
+                <a href="mailto:jonasson@hi.is">jonasson@hi.is</a>
+              </li>
+              <li>
+                <a href="mailto:esa@hi.is">esa@hi.is</a>
+              </li>
+            </ul>
           </section>
 
+          {/* ---------- Credits ---------- */}
           <section className="about-section">
             <h3>Credits</h3>
             <ul>
               <li>Muhammad Faheem Sajjad</li>
-              <li>Kristjan Jonasson</li>
+              <li>Kristján Jónasson</li>
               <li>Esa Olavi Hyytia</li>
             </ul>
           </section>
 
-          {/* <section className="about-section disclaimer">
+          {/* ---------- Optional Disclaimer ---------- */}
+          {/*
+          <section className="about-section disclaimer">
             <h3>Disclaimer</h3>
             <p>
-              This web application is optimized for desktop browsers and may
-              not function correctly on mobile devices. For best experience,
-              please use a laptop or desktop computer.
+              Optimized for desktop browsers; mobile support is limited.
             </p>
-          </section> */}
-          
+          </section>
+          */}
         </div>
 
         <footer className="about-footer">
-          <small>Version 1.0</small>
+          <small>
+            Version {VERSION} · © {new Date().getFullYear()} University of Iceland
+          </small>
         </footer>
       </div>
     </div>

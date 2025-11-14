@@ -30,9 +30,13 @@
 .scale-bar-vertical {
   width: 10px;
   height: 200px;
-  background: linear-gradient(to top, #D2B48C, #FF4500, #8B0000);
   border-radius: 5px;
   margin: 5px 0;
+  transition: background 160ms ease;
+}
+
+.scale-bar-vertical.scale-bar-colored {
+  background: linear-gradient(to top, #FDE725, #5DC863, #21918C, #3B528B, #440154);
 }
 
 .magnitude-scale.vertical .min-value,
@@ -125,4 +129,9 @@
 
 .current-filter span {
   color: #333;
+}
+
+/* --- Dynamic color modes for the vertical bar --- */
+.scale-bar-vertical.scale-bar-gray {
+  background: linear-gradient(to top, #dcdcdc, #777777, #333333);
 }

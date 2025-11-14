@@ -3,7 +3,7 @@ import './TimeWindowSlider.css';
 
 const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 480px)").matches;
 
-const TimeWindowSlider = ({ onFilterChange }) => {
+const TimeWindowSlider = ({ onFilterChange, colorOwner = 'time' }) => {
   // Starting date: June 1, 2020.
   const startDate = new Date(2020, 5, 1);
   const currentDate = new Date();
@@ -106,16 +106,29 @@ const TimeWindowSlider = ({ onFilterChange }) => {
     }
   };
 
-  // Format date for display.
-  const formatDateDisplay = (date) => {
-    return isDayViewMode
-      ? `${date.getDate()} ${date.toLocaleString("default", { month: "short" })} ${date.getFullYear()}`
-      : `${date.toLocaleString("default", { month: "short" })} ${date.getFullYear()}`;
-  };
-
+    // Format date for display (auto-switch by actual span length)
   const formatDateRangeDisplay = () => {
     const { firstVisibleDate, lastVisibleDate } = calculateVisibleRange();
-    return `${formatDateDisplay(firstVisibleDate)} to ${formatDateDisplay(lastVisibleDate)}`;
+
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    const spanDays = Math.max(
+      1,
+      Math.round((lastVisibleDate - firstVisibleDate) / oneDayMs) + 1
+    );
+
+    // If we're looking at a relatively short window, show day precision
+    const useDayPrecision = spanDays <= 31; // treat all "day zoom" windows as day-level
+
+    const fmt = (date) =>
+      useDayPrecision
+        ? `${date.getDate()} ${date.toLocaleString("default", {
+            month: "short",
+          })} ${date.getFullYear()}`
+        : `${date.toLocaleString("default", {
+            month: "short",
+          })} ${date.getFullYear()}`;
+
+    return `${fmt(firstVisibleDate)} to ${fmt(lastVisibleDate)}`;
   };
 
   // Debounced parent update.
@@ -390,21 +403,32 @@ const TimeWindowSlider = ({ onFilterChange }) => {
 
   // --- Background Color ---
   function getTrackBackground() {
-    // Use a single professional color
-    return getProfessionalColor();
+    // Twilight cyclic gradient (endpoints repeated for smooth wrap)
+    return `linear-gradient(to right,
+     #e2d9ff 0%,
+     #bfa9f6 10%,
+     #8d75cf 20%,
+     #6a51a3 30%,
+     #4b2f86 40%,
+     #2d1a6f 50%,
+     #23306f 60%,
+     #2c557c 70%,
+     #3f7d7a 80%,
+     #68a56f 90%,
+     #b7cf77 100%,
+     #e2d9ff 100%
+    )`;
   }
 
-  const trackColor = getTrackBackground();
-  const trackStyle = {
-    cursor: "grab",
-    backgroundColor: trackColor,
-  };
+// let CSS classes control the background
+const trackStyle = { cursor: "grab" };
+
 
   return (
     <div className={`time-window-slider-container ${isDayViewMode ? "day-view" : ""}`}>
       <div className="timeline-slider" ref={sliderRef}>
         <div
-          className="timeline-track"
+          className={`timeline-track ${colorOwner === 'magnitude' ? 'gray' : 'colored'}`}
           ref={trackRef}
           style={trackStyle}
           onMouseDown={handleMouseDown}
