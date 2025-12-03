@@ -58,17 +58,23 @@ const getMarkerColor = (magnitude, maxMagnitude) => {
   return samplePalette(MAG_PALETTE_STOPS, t);
 };
 
-// Scale marker size by magnitude (same MIN_MAG)
-
+// Scale marker size by magnitude (same MIN_MAG) – compressed range
 const getMarkerPixelSize = (mag, maxMag) => {
-  const minPx = 8;
-  const maxPx = 18;
-  const t = Math.max(
-    0,
-    Math.min(1, (parseFloat(mag) - MIN_MAG) / ((parseFloat(maxMag) - MIN_MAG) || 1))
-  );
-  return Math.round(minPx + t * (maxPx - minPx));
+  const minPx = 8;  // smallest quakes
+  const maxPx = 14;  // largest quakes
+
+  const denom = (parseFloat(maxMag) - MIN_MAG) || 1;
+  const tRaw = (parseFloat(mag) - MIN_MAG) / denom;
+
+  // clamp 0..1
+  const t = Math.max(0, Math.min(1, tRaw));
+
+  // slight easing so mid-magnitudes aren’t tiny vs top-end
+  const eased = Math.pow(t, 0.7);
+
+  return Math.round(minPx + eased * (maxPx - minPx));
 };
+
 
 
 // Twilight 12-step cyclic palette (month-wise). Professional, subdued.

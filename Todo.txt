@@ -87,20 +87,41 @@ with status='valid'. Otherwise, the event is labeled 'no_valid' or 'error'.
 
 
 change distance dif to 10 km
-Mw dif can be around 2
+Mw dif can be around 2    --- Done
 
 to increase the number of matched values // Done // Depth fixed (achieved, matched increased, v-only decreased)
 
-make the toggle (color one) vertical -- maybe later
+make the toggle (color one) vertical -- Not doing it
 
 regarding the timewindow slider, the dates on the text below "DD Month year to DD Month Month", 
 DD should be visible within day zoomings -- Done
 
-Future things if time:
-
-Provide data list somewhere, on webapp or as json (text), update the file every 3 minutes, in the about page as a link.
+Provide data list somewhere, on webapp or as json (text), 
+update the file every 3 minutes, in the about page as a link.  -- To be done
 
 change the colour scheme of magnitude scale when selected magnitude color option -- Fixed
 
-change the TimeWindowSlider from horizontal to vertical
+change the TimeWindowSlider from horizontal to vertical  -- Will create issues for toggles under it and the 
+map button (dropdown from top), and for grid labeles (values)
+
+TimeWindowSlider has another issue, it doesn't show latest month box in month mode -- fixed
+
 ----------------------------------------
+
+change domain (live version) -- Deploy somewhere else
+
+fix the slow loading of data on webapp (opening, restarting or slider and magnitude changes) -- To be done
+
+security aspect -- To be done
+
+issue with pluto server right now -- To be done
+
+do the stress test with volunteers -- When webapp is live -- To be done
+
+------------------
+
+fix this,
+
+n=30 in \subsubsection*{Code Snippet: MPGV + Skjálftalísa Ingestion and Merging}, 
+issue with the code i think
+

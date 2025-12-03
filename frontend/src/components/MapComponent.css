@@ -208,7 +208,7 @@
 /* Grid Functionality */
 .grid-toggle-container {
   position: absolute;
-  bottom: 55px;
+  bottom: 35px;
   left: 10px;
   z-index: 1000;
 }
@@ -216,7 +216,7 @@
 /* New: Color-by-time toggle (above others) */
 .color-toggle-container {
   position: absolute;
-  bottom: 145px;  /* sits above volcano (100px) and grid (55px) */
+  bottom: 120px;  
   left: 10px;
   z-index: 1000;
 }
@@ -243,7 +243,7 @@
 /* Add a new class for the volcano toggle container */
 .volcano-toggle-container {
   position: absolute;
-  bottom: 100px;  /* Changed from 125px - moved it down */
+  bottom: 75px;  /* Changed from 125px - moved it down */
   left: 10px;
   z-index: 1000;
 }
@@ -375,7 +375,7 @@
 
 .color-mode-switch button {
   flex: 1;
-  padding: 6px 10px;
+  padding: 4px 8px;
   border: none;
   background: none;
   cursor: pointer;

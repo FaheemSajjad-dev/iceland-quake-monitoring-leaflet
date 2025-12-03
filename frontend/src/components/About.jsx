@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import "./About.css";
+import { API_URL } from "../api";
 
 const VERSION = "1.0";
 
@@ -131,6 +132,25 @@ const About = ({ onClose }) => {
 
           </section>
 
+          {/* ---------- Data Export ---------- */}
+          <section className="about-section">
+            <h3>Data export</h3>
+            <p>
+              You can download the curated earthquake catalogue used in this map
+              as a CSV file (all merged events from June 2020 onward, Mw ≥ 2.7).
+            </p>
+            <button
+              type="button"
+              className="download-csv-button"
+              onClick={() => {
+                // open in a new tab / trigger browser download
+                window.open(`${API_URL}/earthquakes_csv`, "_blank", "noopener,noreferrer");
+              }}
+            >
+              Download CSV
+            </button>
+          </section>
+
           {/* ---------- Contact ---------- */}
           <section className="about-section">
             <h3>Contact</h3>
@@ -159,14 +179,14 @@ const About = ({ onClose }) => {
           </section>
 
           {/* ---------- Optional Disclaimer ---------- */}
-          {/*
+          
           <section className="about-section disclaimer">
             <h3>Disclaimer</h3>
             <p>
               Optimized for desktop browsers; mobile support is limited.
             </p>
           </section>
-          */}
+         
         </div>
 
         <footer className="about-footer">

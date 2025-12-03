@@ -76,9 +76,26 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'time' }) => {
           lastVisibleDate.setTime(currentDate.getTime());
         }
         return { firstVisibleDate, lastVisibleDate, isWeekMode: true };
-      } else if (isYearMode) {
-      return { firstVisibleDate: startDate, lastVisibleDate: currentDate, isDayView: false, isYearMode: true };
-    } else {
+      	} else if (isYearMode) {
+		// Year mode: show the full range June 2020 → today,
+		// but still express it in terms of months so dividers line up correctly.
+		const visibleMonths = totalMonths;
+		const firstVisibleMonthIndex = 0;
+		const firstVisibleDate = new Date(startDate);
+		const lastVisibleDate  = new Date(currentDate);
+
+		return {
+			firstVisibleDate,
+			lastVisibleDate,
+			visibleMonths,
+			isDayView: false,
+			isYearMode: true,
+			firstVisibleMonthIndex,
+			lastVisibleMonthIndex: firstVisibleMonthIndex + visibleMonths - 1,
+		};
+	} else {
+		// months mode...
+
       // Months mode: continuous mapping from zoom → span (no jump from years)
       const visibleMonths = Math.max(
         1,
@@ -106,30 +123,34 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'time' }) => {
     }
   };
 
-    // Format date for display (auto-switch by actual span length)
-  const formatDateRangeDisplay = () => {
-    const { firstVisibleDate, lastVisibleDate } = calculateVisibleRange();
-
-    const oneDayMs = 24 * 60 * 60 * 1000;
-    const spanDays = Math.max(
-      1,
-      Math.round((lastVisibleDate - firstVisibleDate) / oneDayMs) + 1
-    );
-
-    // If we're looking at a relatively short window, show day precision
-    const useDayPrecision = spanDays <= 31; // treat all "day zoom" windows as day-level
-
-    const fmt = (date) =>
-      useDayPrecision
-        ? `${date.getDate()} ${date.toLocaleString("default", {
-            month: "short",
-          })} ${date.getFullYear()}`
-        : `${date.toLocaleString("default", {
-            month: "short",
-          })} ${date.getFullYear()}`;
-
-    return `${fmt(firstVisibleDate)} to ${fmt(lastVisibleDate)}`;
+  // Format date for display.
+  const formatDateDisplay = (date) => {
+    return isDayViewMode
+      ? `${date.getDate()} ${date.toLocaleString("default", { month: "short" })} ${date.getFullYear()}`
+      : `${date.toLocaleString("default", { month: "short" })} ${date.getFullYear()}`;
   };
+
+  const formatDateRangeDisplay = () => {
+		const range = calculateVisibleRange();
+		const { firstVisibleDate, lastVisibleDate } = range;
+
+		const fmtDay = (date) =>
+			`${date.getDate()} ${date.toLocaleString("default", {
+				month: "short",
+			})} ${date.getFullYear()}`;
+
+		const fmtMonth = (date) =>
+			`${date.toLocaleString("default", {
+				month: "short",
+			})} ${date.getFullYear()}`;
+
+		// Use full day–month–year whenever we are in a view that shows days
+		const useDayPrecision = range.isDayView || range.isWeekMode;
+		const f = useDayPrecision ? fmtDay : fmtMonth;
+
+		return `${f(firstVisibleDate)} to ${f(lastVisibleDate)}`;
+	};
+
 
   // Debounced parent update.
   const updateParentWithCurrentRange = () => {
@@ -212,20 +233,87 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'time' }) => {
     }
   };
 
-  // Zoom handler.
+  // Zoom handler – smooth, no big jumps, anchored to cursor in month mode
   const handleWheel = (e) => {
     e.preventDefault();
-    // magnitude-aware zoom: wheel "force" controls step size (clamped)
+
+    if (!trackRef.current) {
+      // Fallback: keep old behaviour if track is missing
+      const raw = e.deltaY;
+      const clamped = Math.max(-60, Math.min(60, raw));
+      const k = zoomLevel < 0.1 ? 0.004 : 0.008;
+      const scale = Math.exp(clamped * k);
+      const newZoomLevel = Math.max(0.01, Math.min(1.0, zoomLevel * scale));
+      setZoomLevel(newZoomLevel);
+      if (newZoomLevel >= 1.0) {
+        setViewOffset(1.0);
+      }
+      return;
+    }
+
+    const rect = trackRef.current.getBoundingClientRect();
+    const cursorX = e.clientX - rect.left;
+    const cursorRatio = Math.max(0, Math.min(1, cursorX / rect.width || 0)); // 0–1
+
+    // === 1) Compute new zoom level (same logic as before) ===
     const raw = e.deltaY;
     const clamped = Math.max(-60, Math.min(60, raw));
     const k = zoomLevel < 0.1 ? 0.004 : 0.008; // gentler in day/close zoom
     const scale = Math.exp(clamped * k);
-    const newZoomLevel = Math.max(0.01, Math.min(1.0, zoomLevel * scale));
-    setZoomLevel(newZoomLevel);
-    if (newZoomLevel >= 1.0) {
-      setViewOffset(1.0);
+
+    const oldZoom = zoomLevel;
+    const newZoom = Math.max(0.01, Math.min(1.0, zoomLevel * scale));
+
+    // === 2) MONTH MODE: do proper month math to avoid big jumps ===
+    if (!isDayViewMode && !isWeekMode && !isYearMode) {
+      // Use current visible month range from our helper
+      const range = calculateVisibleRange();
+      const N = totalMonths; // total months from June 2020 → now
+
+      const Mold = Math.max(
+        1,
+        Math.min(N, range.visibleMonths || Math.round(totalMonths * oldZoom))
+      );
+      const i0old = range.firstVisibleMonthIndex || 0; // leftmost visible month index
+
+      // Absolute month index under the cursor before zoom
+      const iUnderCursor = i0old + cursorRatio * Mold;
+
+      // New visible months from zoom level
+      const Mnew = Math.max(
+        1,
+        Math.min(N, Math.round(totalMonths * newZoom))
+      );
+      const maxOffsetIdx = Math.max(0, N - Mnew);
+
+      // New left index so that the same absolute month stays under the cursor
+      let i0new = iUnderCursor - cursorRatio * Mnew;
+      i0new = Math.max(0, Math.min(maxOffsetIdx, i0new));
+
+      // Convert back to viewOffset in [0, 1]
+      const newViewOffset =
+        maxOffsetIdx > 0 ? i0new / maxOffsetIdx : 0;
+
+      setZoomLevel(newZoom);
+      setViewOffset(newViewOffset);
+      return;
     }
+
+    // === 3) DAY / WEEK / YEAR MODES: keep behaviour similar to before ===
+    const absolutePoint = viewOffset + cursorRatio * oldZoom;
+    let newOffset = absolutePoint - cursorRatio * newZoom;
+
+    if (newZoom >= 1.0) {
+      newOffset = 1.0;
+    }
+
+    newOffset = Math.max(0, Math.min(1, newOffset));
+    setZoomLevel(newZoom);
+    setViewOffset(newOffset);
   };
+
+
+
 
   useEffect(() => {
     const slider = sliderRef.current;
@@ -289,115 +377,157 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'time' }) => {
   };
 
   // --- Divider Generation ---
-  const generateDividers = () => {
-    const dividers = [];
-    const labels = [];
-    const range = calculateVisibleRange();
+	const generateDividers = () => {
+		const dividers = [];
+		const labels = [];
+		const range = calculateVisibleRange();
 
-    if (range.isYearMode) {
-      // Year mode: generate one divider per year boundary (July to June fiscal year)
-      const startYear = startDate.getFullYear();
-      const endYear = currentDate.getFullYear();
-      const years = endYear - startYear + 1;
-      const segmentWidth = 100 / years;
-      
-      for (let i = 0; i <= years; i++) {
-        const pos = (i * segmentWidth).toFixed(2);
-        dividers.push(
-          <div
-            key={`year-divider-${startYear + i}`}
-            className="divider divider-year"
-            style={{ left: `${pos}%`, height: '100%', top: 0 }}
-          />
-        );
-        
-        // Place year labels directly under each divider except the last one
-        if (i < years) {
-          labels.push(
-            <div key={`year-label-${startYear + i}`} className="year-label" style={{ left: `${pos}%` }}>
-              {startYear + i}
-            </div>
-          );
-        }
-      }
-    } else if (isDayViewMode || isWeekMode) {
-      // Day mode: generate one divider per day
-      const { firstVisibleDate, lastVisibleDate } = range;
-      const oneDay = 24 * 60 * 60 * 1000;
-      const days = Math.ceil((lastVisibleDate - firstVisibleDate) / oneDay) + 1;
-      const dividerDate = new Date(firstVisibleDate);
-      
-      // Only three day labels: left, center, right
-      const labelIndices = days <= 3 ? [...Array(days).keys()] : [0, Math.floor((days - 1) / 2), days - 1];
-      
-      for (let i = 0; i < days; i++) {
-        const pos = (i / Math.max(1, days - 1)) * 100;
-        
-        // Determine if this is a year boundary (January 1st - start of fiscal year)
-        const isYearDivider  = dividerDate.getMonth() === 0 && dividerDate.getDate() === 1;
-        
-        dividers.push(
-          <div
-            key={`day-divider-${dividerDate.toISOString()}`}
-            className={isYearDivider  ? "divider divider-year" : "divider divider-day"}
-            style={{ left: `${pos}%`, height: '100%', top: 0 }}
-          />
-        );
-        
-        // Add day labels at key positions
-        if (labelIndices.includes(i)) {
-          labels.push(
-            <div key={`day-label-${dividerDate.toISOString()}`} className="day-label" style={{ left: `${pos}%` }}>
-              {dividerDate.getDate()}
-            </div>
-          );
-        }
-        
-        // Add year label directly under July 1st (fiscal year boundary)
-        if (dividerDate.getMonth() === 6 && dividerDate.getDate() === 1) {
-          labels.push(
-            <div key={`year-label-${dividerDate.getFullYear()}`} className="year-label" style={{ left: `${pos}%` }}>
-              {dividerDate.getFullYear()}
-            </div>
-          );
-        }
-        
-        dividerDate.setDate(dividerDate.getDate() + 1);
-      }
-    } else {
-      // Month mode: generate one divider per month in visible range
-      const { firstVisibleDate, visibleMonths, firstVisibleMonthIndex } = range;
-      if (!visibleMonths) return { dividers, labels };
-      
-      for (let i = 0; i < visibleMonths; i++) {
-        const currentIndex = firstVisibleMonthIndex + i;
-        const year = startDate.getFullYear() + Math.floor((startDate.getMonth() + currentIndex) / 12);
-        const month = (startDate.getMonth() + currentIndex) % 12;
-        const pos = (visibleMonths > 1 ? (i / (visibleMonths - 1)) * 100 : 50);
-        
-        // Check if this is July (start of fiscal year)
-        const isFiscalYearStart = month === 0; // January = 0 in JS Date
-        
-        dividers.push(
-          <div
-            key={`month-divider-${year}-${month+1}`}
-            className={isFiscalYearStart ? "divider divider-year" : "divider divider-month"}
-            style={{ left: `${pos}%`, height: '100%', top: 0 }}
-          />
-        );
-        
-        // Add year label directly under fiscal year dividers (July)
-        if (isFiscalYearStart) {
-          labels.push(
-            <div key={`year-label-${year}`} className="year-label" style={{ left: `${pos}%` }}>
-              {year}
-            </div>
-          );
-        }
-      }
-    }
-    return { dividers, labels };
-  };
+		// --- 1) DAY / WEEK MODES (unchanged idea) ---------------------------
+		if (range.isDayView || range.isWeekMode) {
+			const { firstVisibleDate, lastVisibleDate } = range;
+			const oneDay = 24 * 60 * 60 * 1000;
+			const days =
+				Math.ceil((lastVisibleDate - firstVisibleDate) / oneDay) + 1;
+			const dividerDate = new Date(firstVisibleDate);
+
+			// Only three day labels: left, center, right
+			const labelIndices =
+				days <= 3
+					? [...Array(days).keys()]
+					: [0, Math.floor((days - 1) / 2), days - 1];
+
+			for (let i = 0; i < days; i++) {
+				const pos = (i / Math.max(1, days - 1)) * 100;
+
+				const isYearBoundary =
+					dividerDate.getMonth() === 0 && dividerDate.getDate() === 1;
+
+				dividers.push(
+					<div
+						key={`day-divider-${dividerDate.toISOString()}`}
+						className={
+							isYearBoundary
+								? "divider divider-year"
+								: "divider divider-day"
+						}
+						style={{ left: `${pos}%`, height: "100%", top: 0 }}
+					/>
+				);
+
+				// Day labels at key positions
+				if (labelIndices.includes(i)) {
+					labels.push(
+						<div
+							key={`day-label-${dividerDate.toISOString()}`}
+							className="day-label"
+							style={{ left: `${pos}%` }}
+						>
+							{dividerDate.getDate()}
+						</div>
+					);
+				}
+
+				// Year label directly under 1 January
+				if (isYearBoundary) {
+					labels.push(
+						<div
+							key={`year-label-${dividerDate.getFullYear()}`}
+							className="year-label"
+							style={{ left: `${pos}%` }}
+						>
+							{dividerDate.getFullYear()}
+						</div>
+					);
+				}
+
+				dividerDate.setDate(dividerDate.getDate() + 1);
+			}
+
+			return { dividers, labels };
+		}
+
+		// --- 2) MONTH & YEAR MODES (shared, month-based axis) ---------------
+		const visibleMonths = range.visibleMonths || 0;
+		const firstVisibleMonthIndex = range.firstVisibleMonthIndex || 0;
+
+		if (!visibleMonths) return { dividers, labels };
+
+		const segments = visibleMonths; // N months → N equal boxes → N+1 boundaries
+
+		for (let i = 0; i <= segments; i++) {
+			const boundaryIndex = firstVisibleMonthIndex + i;
+
+			// Map "month index from June 2020" → (year, month)
+			const base = startDate.getMonth() + boundaryIndex;
+			const year =
+				startDate.getFullYear() + Math.floor(base / 12);
+			const month = base % 12; // 0 = Jan ... 11 = Dec
+
+			// Position of this boundary across the visible months [0..1]
+			const pos = segments > 0 ? (i / segments) * 100 : 0;
+
+			// Actual calendar date for the boundary (1st of that month)
+			const boundaryDate = new Date(year, month, 1);
+
+			// A year boundary is *only* a January 1st that lies inside the data window
+			const isYearBoundary =
+				month === 0 &&
+				boundaryDate >= startDate &&
+				boundaryDate <= currentDate;
+
+			if (range.isYearMode) {
+				// YEAR MODE: show ONLY bold year lines, no month lines.
+				if (!isYearBoundary) continue;
+
+				dividers.push(
+					<div
+						key={`year-boundary-${year}`}
+						className="divider divider-year"
+						style={{ left: `${pos}%`, height: "100%", top: 0 }}
+					/>
+				);
+
+				labels.push(
+					<div
+						key={`year-label-${year}`}
+						className="year-label"
+						style={{ left: `${pos}%` }}
+					>
+						{year}
+					</div>
+				);
+			} else {
+				// MONTH MODE: thin month lines + bold year lines
+				dividers.push(
+					<div
+						key={`month-boundary-${year}-${month + 1}`}
+						className={
+							isYearBoundary
+								? "divider divider-year"
+								: "divider divider-month"
+						}
+						style={{ left: `${pos}%`, height: "100%", top: 0 }}
+					/>
+				);
+
+				if (isYearBoundary && i < segments) {
+					labels.push(
+						<div
+							key={`year-label-${year}`}
+							className="year-label"
+							style={{ left: `${pos}%` }}
+						>
+							{year}
+						</div>
+					);
+				}
+			}
+		}
+
+		return { dividers, labels };
+	};
+
+
 
   const { dividers, labels } = generateDividers();
 

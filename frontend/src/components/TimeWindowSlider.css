@@ -24,14 +24,14 @@
 
 .timeline-track {
   border: 1px solid #666666;
-  height: 16px; /* was 18px */
+  height: 16px;
   position: absolute;
-  top: 7px;     /* was 8px */
+  top: 7px;
   left: 0;
   right: 0;
-  border-radius: 3px;
+  border-radius: 0px;
   transition: background-color 0.2s ease;
-  overflow: visible;
+  overflow: hidden;               /* ← change visible → hidden */
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
@@ -149,14 +149,27 @@
   top: 14px; /* Reduced from 15px */
 }
 
-/* Zoom indicator text */
+/* Zoom indicator tooltip (shows on hover) */
 .zoom-indicator {
-  margin-top: 2px; /* Reduced from 3px */
+  position: absolute;
+  top: -22px;                 /* above the slider card */
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  color: #ffffff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
   font-style: italic;
-  font-size: 10px; /* Reduced from 11px */
-  color: #666;
-  text-align: center;
-  padding: 0 5px;
+  white-space: nowrap;
+  opacity: 0;                 /* hidden by default */
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+/* Show tooltip when hovering the slider area */
+.timeline-slider:hover ~ .zoom-indicator {
+  opacity: 1;
 }
 
 /* Adjust time window slider container for day view mode */

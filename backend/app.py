@@ -10,7 +10,7 @@ import requests
 
 from datetime import datetime, timedelta, timezone
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, make_response
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -220,6 +220,61 @@ def get_earthquake_data():
                 "status":    r.status
             } for r in rows
         ])
+
+@app.route("/earthquakes_csv", methods=["GET"])
+def get_earthquake_data_csv():
+    """
+    Download merged earthquake data as CSV.
+
+    Mirrors /earthquakes default behaviour:
+      - uses EarthquakeMerged (polished, Mw >= 2.7)
+      - by default returns ALL data (2020-06-01 → now)
+      - optional: ?days=NN to limit to recent window
+    """
+    days_param = (request.args.get("days") or "all").strip().lower()
+
+    with app.app_context():
+        q = EarthquakeMerged.query
+
+        if days_param != "all":
+            try:
+                days = int(days_param)
+                cutoff = (
+                    datetime.now(timezone.utc) - timedelta(days=days)
+                ).strftime("%Y-%m-%d %H:%M:%S")
+                q = q.filter(EarthquakeMerged.date_time >= cutoff)
+            except ValueError:
+                # bad days param -> fallback to ALL
+                pass
+
+        rows = q.order_by(EarthquakeMerged.date_time.asc()).all()
+
+        import io
+        import csv
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        # Header: polished fields shown on the web map
+        writer.writerow(["Date-time", "Latitude", "Longitude", "Depth_km", "Mw_mean", "status"])
+
+        for r in rows:
+            writer.writerow([
+                r.date_time,
+                f"{r.latitude:.4f}" if r.latitude is not None else "",
+                f"{r.longitude:.4f}" if r.longitude is not None else "",
+                f"{r.depth:.2f}" if r.depth is not None else "",
+                f"{r.mw_mean:.2f}" if r.mw_mean is not None else "",
+                r.status or "",
+            ])
+
+        csv_data = output.getvalue()
+        response = make_response(csv_data)
+        response.headers["Content-Type"] = "text/csv; charset=utf-8"
+        response.headers["Content-Disposition"] = (
+            "attachment; filename=iceland_earthquakes_merged.csv"
+        )
+        return response
 
 @app.route('/scrape-volcanoes', methods=['GET'])
 def scrape_volcanoes():

@@ -4,7 +4,7 @@ import axios from "axios";
 const isLocalDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 
 // Set the API URL accordingly - make sure the ports match your setup
-const API_URL = isLocalDev ? "http://localhost:5000" : "";
+export const API_URL = isLocalDev ? "http://localhost:5000" : "";
 
 console.log("Using API URL:", API_URL);
 
