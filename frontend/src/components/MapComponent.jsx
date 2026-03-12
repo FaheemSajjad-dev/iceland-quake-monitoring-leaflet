@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
 import MapTypeSelector from "./MapTypeSelector";
 import VolcanoMarker from "./VolcanoMarker";
 import "./MapComponent.css";
 import { fetchShakeMapValidated } from "../api";
+import { parseBackendUtcDate } from "../utils/datetime";
 
 const mapContainerStyle = {
   width: "100vw",
@@ -90,9 +91,9 @@ const TWILIGHT_MONTH_COLORS = [
 
 const getTwilightColorForDate = (isoString) => {
   if (!isoString) return "#6a51a3"; // fallback
-  const d = new Date(isoString);
-  if (isNaN(d)) return "#6a51a3";
-  const m = d.getMonth(); // 0..11
+  const d = parseBackendUtcDate(isoString);
+  if (!d) return "#6a51a3";
+  const m = d.getUTCMonth(); // 0..11
   return TWILIGHT_MONTH_COLORS[m] || "#6a51a3";
 };
 
@@ -656,15 +657,6 @@ const MapComponent = ({
               {selectedVolcano.description && <p>{selectedVolcano.description}</p>}
 
               {(() => {
-                const m = Number(selectedVolcano.elevation_m);
-                const f = Number(selectedVolcano.elevation_ft);
-                const elevM = Number.isFinite(m) ? m : null;
-                const elevFt = Number.isFinite(f)
-                  ? f
-                  : elevM != null
-                  ? elevM * 3.28084
-                  : null;
-
                 return (
                   <>
                     <p>

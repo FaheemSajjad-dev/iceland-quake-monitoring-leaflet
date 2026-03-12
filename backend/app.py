@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import sys
 import logging
+import threading
 
 import csv
 import io
@@ -148,6 +149,10 @@ def create_tables() -> None:
 
 create_tables()
 
+_scheduler = None
+_scheduler_lock = threading.Lock()
+_scheduler_started = False
+
 # -----------------------------------------------------------------------------
 # Scheduled job
 # -----------------------------------------------------------------------------
@@ -171,12 +176,26 @@ def scheduled_scrape() -> None:
         start = "2020-06-01 00:00:00"
         match_and_merge(start, end, min_mag=2.7)
 
-# Start the scheduler only once (avoid double-start under Flask reloader)
-if not os.environ.get("DISABLE_SCHEDULER"):
+def start_background_services() -> None:
+    global _scheduler, _scheduler_started
+
+    if os.environ.get("DISABLE_SCHEDULER") or _scheduler_started:
+        return
+
+    with _scheduler_lock:
+        if _scheduler_started:
+            return
+
+        _scheduler = BackgroundScheduler(coalesce=True, misfire_grace_time=60)
+        _scheduler.add_job(scheduled_scrape, "interval", minutes=3, max_instances=1)
+        _scheduler.start()
+        _scheduler_started = True
+
+
+@app.before_request
+def ensure_background_services() -> None:
     if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-        scheduler = BackgroundScheduler(coalesce=True, misfire_grace_time=60)
-        scheduler.add_job(scheduled_scrape, "interval", minutes=3, max_instances=1)
-        scheduler.start()
+        start_background_services()
 
 # -----------------------------------------------------------------------------
 # Routes
@@ -292,16 +311,6 @@ def get_volcano_data():
     """Returns volcano data from the database as JSON."""
     with app.app_context():
         volcanoes = Volcano.query.all()
-        if not volcanoes:
-            try:
-                sys.path.append(CURRENT_FILE_PATH)
-                from volcano_scraper import refresh_volcanoes
-
-                if refresh_volcanoes(DB_PATH):
-                    volcanoes = Volcano.query.all()
-            except Exception as exc:
-                logging.warning("Volcano refresh on read failed: %s", exc)
-
         return jsonify([
             {
                 "name": v.name,
@@ -446,4 +455,5 @@ def shakemap(dt):
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
     print(f"Starting server with database at: {DB_PATH}")
+    start_background_services()
     app.run(debug=True)

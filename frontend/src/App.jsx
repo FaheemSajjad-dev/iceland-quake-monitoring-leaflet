@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import MapComponent from "./components/MapComponent";
 import TimeWindowSlider from "./components/TimeWindowSlider";
 import MagnitudeScale from "./components/MagnitudeScale";
 import About from "./components/About";
 import { fetchEarthquakeData, fetchVolcanoData } from "./api";
+import { parseBackendUtcDate } from "./utils/datetime";
 import "./App.css";
 
 const App = () => {
@@ -63,9 +64,9 @@ const App = () => {
         const filtered = allData.filter(quake => {
             if (!quake["Date-time"] || !quake.Mw_mean) return false;
             try {
-                const qd = new Date(quake["Date-time"]);
-                if (isNaN(qd.getTime())) return false;
-                const y = qd.getFullYear(), m = qd.getMonth()+1, d = qd.getDate();
+                const qd = parseBackendUtcDate(quake["Date-time"]);
+                if (!qd) return false;
+                const y = qd.getUTCFullYear(), m = qd.getUTCMonth()+1, d = qd.getUTCDate();
 
                 let inRange;
                 if (dateRange.isDayPrecision) {

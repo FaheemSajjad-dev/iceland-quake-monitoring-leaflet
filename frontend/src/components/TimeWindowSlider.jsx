@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import './TimeWindowSlider.css';
 
 const TimeWindowSlider = ({ onFilterChange, colorOwner = 'time' }) => {
@@ -11,8 +11,6 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'time' }) => {
   const totalMonths =
     (currentDate.getFullYear() - startDate.getFullYear()) * 12 +
     (currentDate.getMonth() - startDate.getMonth()) + 1;
-  const totalYears = currentDate.getFullYear() - startDate.getFullYear() + 1;
-
   // Local state: zoom level and view offset.
   const [zoomLevel, setZoomLevel] = useState(1.0);
   const [viewOffset, setViewOffset] = useState(1.0);
@@ -22,22 +20,12 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'time' }) => {
   const isWeekMode    = !isDayViewMode && zoomLevel < 0.15;
   const isYearMode    = zoomLevel >= 0.95; // Fully zoomed out = year mode.
   
-  // Slow interaction constants.
-  const DRAG_SLOW_FACTOR = isDayViewMode ? 0.1 : 2.0; // Faster speed for both modes
-  const ZOOM_SLOW_FACTOR_DAY = 0.001;
-  const ZOOM_SLOW_FACTOR_OTHER = 0.005;
-
   // Refs for dragging.
   const sliderRef = useRef(null);
   const trackRef = useRef(null);
   const isDraggingRef = useRef(false);
   const dragStartXRef = useRef(0);
   const dragStartOffsetRef = useRef(0);
-
-  // Single professional color for the slider
-  function getProfessionalColor() {
-    return "#de2d08"; // More vibrant reddish-orange tone
-  }
 
   // Calculate visible range based on current mode.
   const calculateVisibleRange = () => {
@@ -119,13 +107,6 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'time' }) => {
         lastVisibleMonthIndex: firstVisibleMonthIndex + visibleMonths - 1,
       };
     }
-  };
-
-  // Format date for display.
-  const formatDateDisplay = (date) => {
-    return isDayViewMode
-      ? `${date.getDate()} ${date.toLocaleString("default", { month: "short" })} ${date.getFullYear()}`
-      : `${date.toLocaleString("default", { month: "short" })} ${date.getFullYear()}`;
   };
 
   const formatDateRangeDisplay = () => {
@@ -555,24 +536,6 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'time' }) => {
   const { dividers, labels } = generateDividers();
 
   // --- Background Color ---
-  function getTrackBackground() {
-    // Twilight cyclic gradient (endpoints repeated for smooth wrap)
-    return `linear-gradient(to right,
-     #e2d9ff 0%,
-     #bfa9f6 10%,
-     #8d75cf 20%,
-     #6a51a3 30%,
-     #4b2f86 40%,
-     #2d1a6f 50%,
-     #23306f 60%,
-     #2c557c 70%,
-     #3f7d7a 80%,
-     #68a56f 90%,
-     #b7cf77 100%,
-     #e2d9ff 100%
-    )`;
-  }
-
 // let CSS classes control the background
 const trackStyle = { cursor: "grab" };
 
