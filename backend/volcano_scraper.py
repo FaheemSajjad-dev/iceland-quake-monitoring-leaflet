@@ -6,18 +6,30 @@ from typing import List, Dict, Optional
 import unicodedata
 import requests
 
-BASE = "https://api.epos-iceland.is"
+BASE = "https://api.vedur.is/epos"
 ENDPOINTS = {
-    "status": "/v1/volcano/general-information/volcanoes-status",
-    "catalog": "/v1/volcano/general-information/list-of-volcanoes",
-    "eruptions": "/v1/volcano/general-information/list-of-eruptions",
+    "status": (
+        "/volcano/general-information/volcanoes-status",
+        "/v1/volcano/general-information/volcanoes-status",
+    ),
+    "catalog": (
+        "/volcano/general-information/list-of-volcanoes",
+        "/v1/volcano/general-information/list-of-volcanoes",
+    ),
+    "eruptions": (
+        "/volcano/general-information/list-of-eruptions",
+        "/v1/volcano/general-information/list-of-eruptions",
+    ),
+}
+DEFAULT_HEADERS = {
+    "Accept": "application/json",
 }
 
 # URL
 def _get_json(url: str, timeout: int = 25):
     for i in range(3):
         try:
-            r = requests.get(url, timeout=timeout)
+            r = requests.get(url, headers=DEFAULT_HEADERS, timeout=timeout)
             r.raise_for_status()
             return r.json()
         except Exception as e:
@@ -26,6 +38,29 @@ def _get_json(url: str, timeout: int = 25):
                 return None
             time.sleep(0.7 * (i + 1))
     return None
+
+
+def _get_first_json(paths, timeout: int = 25):
+    if isinstance(paths, str):
+        paths = (paths,)
+
+    for path in paths:
+        url = BASE + path
+        payload = _get_json(url, timeout=timeout)
+        if payload is not None:
+            return payload
+    return None
+
+
+def _extract_items(payload):
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        for key in ("data", "items", "results", "features"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                return value
+    return []
 
 # ---------- utils ----------
 def _norm_name(s: str) -> str:
@@ -50,14 +85,23 @@ def fetch_and_merge() -> List[Dict]:
     Fetch volcanoes from EPOS API and normalize to our database schema.
     Uses 'height' as elevation in meters.
     """
-    url_catalog = BASE + ENDPOINTS["catalog"]
-    catalog = _get_json(url_catalog) or []
+    catalog = _get_first_json(ENDPOINTS["catalog"]) or []
 
     merged = []
-    for v in (catalog if isinstance(catalog, list) else catalog.get("data", [])):
+    for v in _extract_items(catalog):
         name = v.get("name") or v.get("volcano_name") or v.get("system_name") or v.get("title")
-        lat = v.get("latitude") or v.get("lat_dd") or v.get("lat")
-        lon = v.get("longitude") or v.get("lon_dd") or v.get("lon")
+        lat = v.get("latitude")
+        if lat is None:
+            lat = v.get("lat_dd")
+        if lat is None:
+            lat = v.get("lat")
+
+        lon = v.get("longitude")
+        if lon is None:
+            lon = v.get("lon_dd")
+        if lon is None:
+            lon = v.get("lon")
+
         if not name or lat is None or lon is None:
             continue
 
@@ -77,8 +121,12 @@ def fetch_and_merge() -> List[Dict]:
             "last_eruption": None,  # not available from this endpoint
         })
 
-    print(f"[OK] Loaded {len(merged)} volcanoes from EPOS catalog with 'height' as elevation.")
-    return merged
+    if merged:
+        print(f"[OK] Loaded {len(merged)} volcanoes from EPOS catalog with 'height' as elevation.")
+        return merged
+
+    print("[ERROR] EPOS volcano catalog returned no usable volcano rows.")
+    return []
 
 # ---------- db ----------
 def save_volcanoes_to_db(volcanoes: List[Dict], db_path: Optional[str] = None) -> bool:

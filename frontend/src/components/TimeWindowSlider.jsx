@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import './TimeWindowSlider.css';
 
-const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 480px)").matches;
-
 const TimeWindowSlider = ({ onFilterChange, colorOwner = 'time' }) => {
   // Starting date: June 1, 2020.
   const startDate = new Date(2020, 5, 1);
@@ -357,24 +355,6 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'time' }) => {
     if (trackRef.current) trackRef.current.classList.remove("dragging");
   };
 
-  // Zoom buttons (mobile)
-  const zoomIn = () => {
-    // zoom in ⇒ smaller zoomLevel (more detail)
-    setZoomLevel(prev => {
-      const next = Math.max(0.01, prev * 0.8);
-      if (next >= 1.0) setViewOffset(1.0);
-      return next;
-    });
-  };
-
-  const zoomOut = () => {
-    // zoom out ⇒ larger zoomLevel (more span)
-    setZoomLevel(prev => {
-      const next = Math.min(1.0, prev * 1.25);
-      if (next >= 1.0) setViewOffset(1.0);
-      return next;
-    });
-  };
 
   // --- Divider Generation ---
 	const generateDividers = () => {
@@ -427,15 +407,16 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'time' }) => {
 					);
 				}
 
-				// Year label directly under 1 January
+				// Year label directly under 1 January showing prev/next year
 				if (isYearBoundary) {
+					const yr = dividerDate.getFullYear();
 					labels.push(
 						<div
-							key={`year-label-${dividerDate.getFullYear()}`}
+							key={`year-label-${yr}`}
 							className="year-label"
 							style={{ left: `${pos}%` }}
 						>
-							{dividerDate.getFullYear()}
+							{String(yr - 1).slice(-2)}/{String(yr).slice(-2)}
 						</div>
 					);
 				}
@@ -453,6 +434,9 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'time' }) => {
 		if (!visibleMonths) return { dividers, labels };
 
 		const segments = visibleMonths; // N months → N equal boxes → N+1 boundaries
+
+		// For year mode: collect boundary positions then place labels at midpoints
+		const yearBoundaryPositions = [];
 
 		for (let i = 0; i <= segments; i++) {
 			const boundaryIndex = firstVisibleMonthIndex + i;
@@ -476,7 +460,7 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'time' }) => {
 				boundaryDate <= currentDate;
 
 			if (range.isYearMode) {
-				// YEAR MODE: show ONLY bold year lines, no month lines.
+				// YEAR MODE: show ONLY bold year lines, collect positions for centered labels
 				if (!isYearBoundary) continue;
 
 				dividers.push(
@@ -487,15 +471,7 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'time' }) => {
 					/>
 				);
 
-				labels.push(
-					<div
-						key={`year-label-${year}`}
-						className="year-label"
-						style={{ left: `${pos}%` }}
-					>
-						{year}
-					</div>
-				);
+				yearBoundaryPositions.push({ year, pos });
 			} else {
 				// MONTH MODE: thin month lines + bold year lines
 				dividers.push(
@@ -510,6 +486,7 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'time' }) => {
 					/>
 				);
 
+				// Month mode: year label at thick separator line showing prev/next year
 				if (isYearBoundary && i < segments) {
 					labels.push(
 						<div
@@ -517,10 +494,56 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'time' }) => {
 							className="year-label"
 							style={{ left: `${pos}%` }}
 						>
-							{year}
+							{String(year - 1).slice(-2)}/{String(year).slice(-2)}
 						</div>
 					);
 				}
+			}
+		}
+
+		// Year mode: place labels centered inside each year band
+		if (range.isYearMode && yearBoundaryPositions.length > 0) {
+			// First partial year (e.g. Jun-Dec 2020): band is 0% to first boundary
+			const first = yearBoundaryPositions[0];
+			if (first.pos > 0) {
+				labels.push(
+					<div
+						key={`year-label-${first.year - 1}`}
+						className="year-label"
+						style={{ left: `${first.pos / 2}%` }}
+					>
+						{first.year - 1}
+					</div>
+				);
+			}
+
+			// Full years between consecutive boundaries
+			for (let j = 0; j < yearBoundaryPositions.length - 1; j++) {
+				const midPos = (yearBoundaryPositions[j].pos + yearBoundaryPositions[j + 1].pos) / 2;
+				labels.push(
+					<div
+						key={`year-label-${yearBoundaryPositions[j].year}`}
+						className="year-label"
+						style={{ left: `${midPos}%` }}
+					>
+						{yearBoundaryPositions[j].year}
+					</div>
+				);
+			}
+
+			// Last partial year (e.g. Jan-Mar 2026): band is last boundary to 100%
+			const last = yearBoundaryPositions[yearBoundaryPositions.length - 1];
+			if (last.pos < 100) {
+				const midPos = (last.pos + 100) / 2;
+				labels.push(
+					<div
+						key={`year-label-${last.year}`}
+						className="year-label"
+						style={{ left: `${midPos}%` }}
+					>
+						{last.year}
+					</div>
+				);
 			}
 		}
 
@@ -574,13 +597,6 @@ const trackStyle = { cursor: "grab" };
           {labels}
         </div>
 
-        {/* Zoom buttons only for mobile */}
-        {isMobile && (
-          <div className="tw-zoom-buttons" aria-hidden="false">
-            <button type="button" className="tw-zoom-btn" onClick={zoomIn}>+</button>
-            <button type="button" className="tw-zoom-btn" onClick={zoomOut}>−</button>
-          </div>
-        )}
       </div>
 
       <div className="selected-date">{formatDateRangeDisplay()}</div>

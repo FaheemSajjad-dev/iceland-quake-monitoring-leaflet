@@ -4,6 +4,8 @@ import os
 import sys
 import logging
 
+import csv
+import io
 import math
 import requests
 
@@ -200,7 +202,6 @@ def get_earthquake_data():
         if days_param != "all":
             try:
                 days = int(days_param)
-                from datetime import datetime, timezone, timedelta
                 cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
                 q = q.filter(EarthquakeMerged.date_time >= cutoff)
             except ValueError:
@@ -248,9 +249,6 @@ def get_earthquake_data_csv():
 
         rows = q.order_by(EarthquakeMerged.date_time.asc()).all()
 
-        import io
-        import csv
-
         output = io.StringIO()
         writer = csv.writer(output)
 
@@ -279,14 +277,12 @@ def get_earthquake_data_csv():
 def scrape_volcanoes():
     """Fetch and save live volcano data from EPOS Iceland API (discovered automatically)."""
     try:
-        import sys
         sys.path.append(CURRENT_FILE_PATH)
         from volcano_scraper import refresh_volcanoes
         ok = refresh_volcanoes(DB_PATH)
         if ok:
-            return jsonify({"message": "EPOS volcanoes fetched & saved."})
-        else:
-            return jsonify({"message": "No volcano data was found from EPOS API."}), 502
+            return jsonify({"message": "EPOS volcanoes fetched and saved.", "source": "epos"})
+        return jsonify({"message": "No volcano data was found from EPOS API.", "source": "none"}), 502
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -296,6 +292,16 @@ def get_volcano_data():
     """Returns volcano data from the database as JSON."""
     with app.app_context():
         volcanoes = Volcano.query.all()
+        if not volcanoes:
+            try:
+                sys.path.append(CURRENT_FILE_PATH)
+                from volcano_scraper import refresh_volcanoes
+
+                if refresh_volcanoes(DB_PATH):
+                    volcanoes = Volcano.query.all()
+            except Exception as exc:
+                logging.warning("Volcano refresh on read failed: %s", exc)
+
         return jsonify([
             {
                 "name": v.name,
@@ -308,31 +314,6 @@ def get_volcano_data():
             }
             for v in volcanoes
         ])
-
-@app.route("/deep-earthquakes", methods=["GET"])
-def get_deep_earthquakes():
-    """
-    Returns events with depth >= 25 km from the MPGV table (v-only),
-    primarily for your 'Deep Earthquakes' panel.
-    """
-    with app.app_context():
-        deep = (
-            Earthquake.query
-            .filter(Earthquake.depth >= 25)
-            .order_by(Earthquake.depth.desc())
-            .all()
-        )
-        result = [
-            {
-                "Date-time": q.date_time,
-                "Latitude": q.latitude,
-                "Longitude": q.longitude,
-                "Depth": q.depth,
-                "Mw_mean": q.mw_mean,
-            }
-            for q in deep
-        ]
-        return jsonify({"count": len(result), "earthquakes": result})
 
 
 @app.route("/reconcile", methods=["POST"])

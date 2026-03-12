@@ -1,18 +1,13 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import { GoogleMap, LoadScript, Marker } from "@react-google-maps/api";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
 import MapTypeSelector from "./MapTypeSelector";
-// import CrossSectionView from "./CrossSectionView";
 import VolcanoMarker from "./VolcanoMarker";
 import "./MapComponent.css";
 import { fetchShakeMapValidated } from "../api";
 
-const isMobile =
-  typeof window !== "undefined" &&
-  window.matchMedia("(max-width: 480px)").matches;
-
 const mapContainerStyle = {
   width: "100vw",
-  height: isMobile ? "100dvh" : "100vh",
+  height: "100vh",
 };
 
 const center = { lat: 64.9631, lng: -19.0208 };
@@ -101,27 +96,28 @@ const getTwilightColorForDate = (isoString) => {
   return TWILIGHT_MONTH_COLORS[m] || "#6a51a3";
 };
 
-const MapComponent = ({ 
-    earthquakes, 
-    volcanoes = [], 
-    maxMagnitude, 
-    onMapTypeChange, 
-    showVolcanoes, 
+const MapComponent = ({
+    earthquakes,
+    volcanoes = [],
+    maxMagnitude,
+    onMapTypeChange,
+    showVolcanoes,
     toggleVolcanoes,
     colorOwner,              // 'timeline' or 'magnitude'
     onChangeColorOwner,
-    isDarkMode 
+    isDarkMode
 }) => {
+
+  const { isLoaded } = useJsApiLoader({
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+  });
 
   const [selectedEarthquake, setSelectedEarthquake] = useState(null);
   const [selectedVolcano, setSelectedVolcano] = useState(null);
   const [map, setMap] = useState(null);
-  const [mapLoaded, setMapLoaded] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
 
-  const volcanoMarkersRef = useRef([]);
   const gridLinesRef = useRef([]);
-  const previousEarthquakesRef = useRef([]);
 
   const [shakeUrl, setShakeUrl] = useState(null);
 
@@ -135,39 +131,17 @@ const MapComponent = ({
           q.Longitude === selectedEarthquake.Longitude
       );
       if (!stillExists) {
-        cleanupDepthVisualization();
         setSelectedEarthquake(null);
       }
     }
   }, [earthquakes, selectedEarthquake]);
 
-  useEffect(() => {
-    const prevLen = previousEarthquakesRef.current.length;
-    if (prevLen !== earthquakes.length) {
-      if (selectedEarthquake) {
-        const stillExists = earthquakes.some(
-          (q) =>
-            q["Date-time"] === selectedEarthquake["Date-time"] &&
-            q.Latitude === selectedEarthquake.Latitude &&
-            q.Longitude === selectedEarthquake.Longitude
-        );
-        if (!stillExists) {
-          cleanupDepthVisualization();
-          setSelectedEarthquake(null);
-        }
-      }
-      previousEarthquakesRef.current = earthquakes;
-    }
-  }, [earthquakes, selectedEarthquake]);
 
   // Auto-close EQ info after 15s
   useEffect(() => {
     let t;
     if (selectedEarthquake) {
-      t = setTimeout(() => {
-        cleanupDepthVisualization();
-        setSelectedEarthquake(null);
-      }, 15000);
+      t = setTimeout(() => setSelectedEarthquake(null), 15000);
     }
     return () => t && clearTimeout(t);
   }, [selectedEarthquake]);
@@ -180,8 +154,6 @@ const MapComponent = ({
     }
     return () => t && clearTimeout(t);
   }, [selectedVolcano]);
-
-  // Shakemap URL
 
   useEffect(() => {
     let cancelled = false;
@@ -200,12 +172,10 @@ const MapComponent = ({
   }, [selectedEarthquake]);
 
 
-  // Toggle grid visibility
   const toggleGrid = useCallback(() => {
     setShowGrid((prev) => !prev);
   }, []);
 
-  // Build grid lines and labels (single, de-duplicated implementation)
   const createAdaptiveGrid = useCallback(
     (mapObj, clearExisting = true) => {
       if (!mapObj || !window.google) return [];
@@ -228,7 +198,6 @@ const MapComponent = ({
       const east = bounds.getNorthEast().lng();
       const west = bounds.getSouthWest().lng();
 
-      // spacing by zoom
       let gridSpacing,
         subGridSpacing = null,
         decimals = 0;
@@ -264,7 +233,6 @@ const MapComponent = ({
         decimals = 4;
       }
 
-      // Colors based on map type
       const typeId = mapObj.getMapTypeId?.() || "";
       const darkLike =
         typeId === "dark_mode" || typeId === "satellite" || !!isDarkMode;
@@ -290,7 +258,6 @@ const MapComponent = ({
         zIndex: 0,
       };
 
-      // expand bounds a bit
       const latExt = (north - south) * 0.1;
       const lngExt = (east - west) * 0.1;
       const extN = Math.min(85, north + latExt);
@@ -304,9 +271,7 @@ const MapComponent = ({
       const endLng = Math.ceil(extE / gridSpacing) * gridSpacing;
 
       const lines = [];
-      const showLabels = true;
 
-      // Horizontal lines (lat)
       for (let lat = startLat; lat <= endLat; lat += gridSpacing) {
         if (lat < -85 || lat > 85) continue;
         lines.push(
@@ -318,27 +283,21 @@ const MapComponent = ({
             ],
           })
         );
-        if (showLabels) {
-          const text = `${lat.toFixed(decimals)}°${
-            lat > 0 ? "N" : lat < 0 ? "S" : ""
-          }`;
-          lines.push(
-            new window.google.maps.Marker({
-              position: { lat, lng: west + (east - west) * 0.02 },
-              icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: 0 },
-              label: {
-                text,
-                color: labelColor,
-                fontSize: "10px",
-                fontWeight: "bold",
-              },
-              map: mapObj,
-            })
-          );
-        }
+        lines.push(
+          new window.google.maps.Marker({
+            position: { lat, lng: west + (east - west) * 0.02 },
+            icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: 0 },
+            label: {
+              text: `${lat.toFixed(decimals)}°${lat > 0 ? "N" : lat < 0 ? "S" : ""}`,
+              color: labelColor,
+              fontSize: "10px",
+              fontWeight: "bold",
+            },
+            map: mapObj,
+          })
+        );
       }
 
-      // Vertical lines (lng)
       for (let lng = startLng; lng <= endLng; lng += gridSpacing) {
         lines.push(
           new window.google.maps.Polyline({
@@ -349,24 +308,19 @@ const MapComponent = ({
             ],
           })
         );
-        if (showLabels) {
-          const text = `${lng.toFixed(decimals)}°${
-            lng > 0 ? "E" : lng < 0 ? "W" : ""
-          }`;
-          lines.push(
-            new window.google.maps.Marker({
-              position: { lat: south + (north - south) * 0.05, lng },
-              icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: 0 },
-              label: {
-                text,
-                color: labelColor,
-                fontSize: "10px",
-                fontWeight: "bold",
-              },
-              map: mapObj,
-            })
-          );
-        }
+        lines.push(
+          new window.google.maps.Marker({
+            position: { lat: south + (north - south) * 0.05, lng },
+            icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: 0 },
+            label: {
+              text: `${lng.toFixed(decimals)}°${lng > 0 ? "E" : lng < 0 ? "W" : ""}`,
+              color: labelColor,
+              fontSize: "10px",
+              fontWeight: "bold",
+            },
+            map: mapObj,
+          })
+        );
       }
 
       // Sub-grid
@@ -450,11 +404,9 @@ const MapComponent = ({
     [isDarkMode]
   );
 
-  // Create/manage grid lines
   useEffect(() => {
     if (!map || !window.google) return;
 
-    // clear any leftovers
     (gridLinesRef.current || []).forEach((o) => o.setMap(null));
     gridLinesRef.current = [];
 
@@ -465,10 +417,8 @@ const MapComponent = ({
       gridLinesRef.current = createAdaptiveGrid(map, false);
     };
 
-    // initial draw
     redraw();
 
-    // re-draw on interactions
     const zoomListener = map.addListener("zoom_changed", redraw);
     const dragListener = map.addListener("dragend", redraw);
     const typeListener = map.addListener("maptypeid_changed", redraw);
@@ -482,32 +432,18 @@ const MapComponent = ({
     };
   }, [map, showGrid, createAdaptiveGrid]);
 
-  // Cleanup function for depth visualization (placeholder)
-  const cleanupDepthVisualization = () => {};
+  const handleMarkerClick = useCallback((quake) => {
+    setSelectedVolcano(null);
+    setSelectedEarthquake(quake);
+  }, []);
 
-  // Create depth visualization (placeholder)
-  const createDepthVisualization = useCallback((_quake) => {}, []);
-
-  // Handle earthquake marker click
-  const handleMarkerClick = useCallback(
-    (quake) => {
-      setSelectedVolcano(null);
-      setSelectedEarthquake(quake);
-      createDepthVisualization(quake);
-    },
-    [createDepthVisualization]
-  );
-
-  // Handle volcano marker click
   const handleVolcanoClick = useCallback((volcano) => {
-    cleanupDepthVisualization();
     setSelectedEarthquake(null);
     setSelectedVolcano(volcano);
   }, []);
 
   const handleMapLoad = useCallback((mapInstance) => {
     setMap(mapInstance);
-    setMapLoaded(true);
 
     if (window.google && window.google.maps) {
       const darkMap = new window.google.maps.StyledMapType(darkModeStyle, {
@@ -518,21 +454,48 @@ const MapComponent = ({
   }, []);
 
   // Map options with disabled UI elements, except for scale control
-  const mapOptions = useCallback(
+  // 23 = ControlPosition.BOTTOM_LEFT (safe before window.google is available)
+  const mapOptions = useMemo(
     () => ({
       disableDefaultUI: true,
       minZoom: 6,
       scaleControl: true,
       scaleControlOptions: {
-        position: window.google.maps.ControlPosition.BOTTOM_LEFT,
+        position: window.google?.maps?.ControlPosition?.BOTTOM_LEFT ?? 23,
       },
     }),
     []
   );
 
+  // Memoize marker icon data — only recomputes when earthquakes, colorOwner, or maxMagnitude change
+  const markerIcons = useMemo(() =>
+    earthquakes.map((quake) => {
+      const magnitude = parseFloat(quake.Mw_mean);
+      const baseColor =
+        colorOwner === 'timeline'
+          ? getTwilightColorForDate(quake["Date-time"])
+          : getMarkerColor(magnitude, maxMagnitude);
+      const px = getMarkerPixelSize(magnitude, maxMagnitude);
+      const anchorHalf = Math.round(px / 2);
+      const normalSvg = encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${px}" height="${px}">
+           <rect x="4" y="4" width="16" height="16" fill="${baseColor}"/>
+         </svg>`
+      );
+      const selectedSvg = encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${px + 4}" height="${px + 4}">
+           <rect x="3" y="3" width="18" height="18" fill="${baseColor}" stroke="#ffffff" stroke-width="2"/>
+         </svg>`
+      );
+      return { px, anchorHalf, normalSvg, selectedSvg };
+    }),
+    [earthquakes, colorOwner, maxMagnitude]
+  );
+
+  if (!isLoaded) return null;
+
   return (
-    <LoadScript googleMapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
-      <div className="map-container">
+    <div className="map-container">
         <div className="map-type-control">
           <MapTypeSelector
             onMapTypeChange={(type) => {
@@ -544,154 +507,76 @@ const MapComponent = ({
           />
         </div>
 
-        {/* Toggles */}
-        {!isMobile ? (
-          <>
-            {/* Color mode selector: Timeline vs Magnitude */}
-            <div className="color-toggle-container">
-              <div className="color-mode-switch">
-                <button 
-                  className={colorOwner === 'timeline' ? 'active' : ''} 
-                  onClick={() => onChangeColorOwner('timeline')}
-                >
-                  Timeline colors
-                </button>
-                <button 
-                  className={colorOwner === 'magnitude' ? 'active' : ''} 
-                  onClick={() => onChangeColorOwner('magnitude')}
-                >
-                  Magnitude colors
-                </button>
-              </div>
-            </div>
+        {/* Color mode selector */}
+        <div className="color-toggle-container">
+          <div className="color-mode-switch">
+            <button
+              className={colorOwner === 'timeline' ? 'active' : ''}
+              onClick={() => onChangeColorOwner('timeline')}
+            >
+              Timeline colors
+            </button>
+            <button
+              className={colorOwner === 'magnitude' ? 'active' : ''}
+              onClick={() => onChangeColorOwner('magnitude')}
+            >
+              Magnitude colors
+            </button>
+          </div>
+        </div>
 
+        {/* Volcano toggle */}
+        <div className="volcano-toggle-container">
+          <div className="volcano-toggle">
+            <label className="switch">
+              <input
+                type="checkbox"
+                checked={showVolcanoes}
+                onChange={toggleVolcanoes}
+              />
+              <span className="slider round"></span>
+            </label>
+            <span className="toggle-label">Show volcanoes</span>
+          </div>
+        </div>
 
-            {/* Volcano toggle */}
-            <div className="volcano-toggle-container">
-              <div className="volcano-toggle">
-                <label className="switch">
-                  <input
-                    type="checkbox"
-                    checked={showVolcanoes}
-                    onChange={toggleVolcanoes}
-                  />
-                  <span className="slider round"></span>
-                </label>
-                <span className="toggle-label">Show volcanoes</span>
-              </div>
-            </div>
-
-            {/* Grid toggle */}
-            <div className="grid-toggle-container">
-              <div className="volcano-toggle grid-toggle">
-                <label className="switch">
-                  <input
-                    type="checkbox"
-                    checked={showGrid}
-                    onChange={toggleGrid}
-                  />
-                  <span className="slider round"></span>
-                </label>
-                <span className="toggle-label">Show lat-lon grid</span>
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            {/* Mobile: stack under Magnitude Scale (right side) */}
-            <div className="mobile-toggle-stack">
-              <div className="toggle-chip color-toggle">
-                <label className="switch">
-                  <input
-                    type="checkbox"
-                    checked={colorByTime}
-                    onChange={toggleColorByTime}
-                  />
-                  <span className="slider round"></span>
-                </label>
-                <span className="toggle-text">time colors</span>
-              </div>
-
-              <div className="toggle-chip">
-                <label className="switch">
-                  <input
-                    type="checkbox"
-                    checked={showVolcanoes}
-                    onChange={toggleVolcanoes}
-                  />
-                  <span className="slider round"></span>
-                </label>
-                <img
-                  className="toggle-icon"
-                  alt="volcano"
-                  src={`data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
-                    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
-                       <path fill="#ff3c00ff" d="M12,2L2,22h20L12,2z M12,17c-0.6,0-1-0.4-1-1s0.4-1,1-1s1,0.4,1,1S12.6,17,12,17z"/>
-                     </svg>`
-                  )}`}
-                />
-              </div>
-
-              <div className="toggle-chip">
-                <label className="switch">
-                  <input
-                    type="checkbox"
-                    checked={showGrid}
-                    onChange={toggleGrid}
-                  />
-                  <span className="slider round"></span>
-                </label>
-                <span className="toggle-text">lat-lon</span>
-              </div>
-            </div>
-          </>
-        )}
+        {/* Grid toggle */}
+        <div className="grid-toggle-container">
+          <div className="volcano-toggle grid-toggle">
+            <label className="switch">
+              <input
+                type="checkbox"
+                checked={showGrid}
+                onChange={toggleGrid}
+              />
+              <span className="slider round"></span>
+            </label>
+            <span className="toggle-label">Show lat-lon grid</span>
+          </div>
+        </div>
 
         <GoogleMap
           mapContainerStyle={mapContainerStyle}
           zoom={6}
           center={center}
-          options={
-            mapLoaded
-              ? mapOptions()
-              : {
-                  minZoom: 6,
-                  disableDefaultUI: true,
-                  scaleControl: true,
-                }
-          }
+          options={mapOptions}
           onLoad={handleMapLoad}
           onClick={() => {
-            cleanupDepthVisualization();
             setSelectedEarthquake(null);
             setSelectedVolcano(null);
           }}
         >
           {/* Earthquake Markers */}
           {earthquakes.map((quake, index) => {
-            const magnitude = parseFloat(quake.Mw_mean);
             const isSelected =
               selectedEarthquake &&
               quake["Date-time"] === selectedEarthquake["Date-time"] &&
               quake.Latitude === selectedEarthquake.Latitude &&
               quake.Longitude === selectedEarthquake.Longitude;
 
-            const basePx = getMarkerPixelSize(magnitude, maxMagnitude);
-            const px = isSelected ? basePx + 4 : basePx;
-            const anchorHalf = Math.round(px / 2);
-
-            const baseColor =
-                colorOwner === 'timeline'
-                    ? getTwilightColorForDate(quake["Date-time"])
-                    : getMarkerColor(magnitude, maxMagnitude);
-
-            const iconSvg = !isSelected
-              ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${px}" height="${px}">
-                   <rect x="4" y="4" width="16" height="16" fill="${baseColor}"/>
-                 </svg>`
-              : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${px}" height="${px}">
-                   <rect x="3" y="3" width="18" height="18" fill="${baseColor}" stroke="#ffffff" stroke-width="2"/>
-                 </svg>`;
+            const { px, anchorHalf, normalSvg, selectedSvg } = markerIcons[index];
+            const activePx = isSelected ? px + 4 : px;
+            const activeSvg = isSelected ? selectedSvg : normalSvg;
 
             return (
               <Marker
@@ -701,14 +586,11 @@ const MapComponent = ({
                   lng: parseFloat(quake.Longitude),
                 }}
                 icon={{
-                  url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
-                    iconSvg
-                  )}`,
-                  scaledSize: { width: px, height: px },
+                  url: `data:image/svg+xml;charset=UTF-8,${activeSvg}`,
+                  scaledSize: { width: activePx, height: activePx },
                   anchor: { x: anchorHalf, y: anchorHalf },
                 }}
                 onClick={(e) => {
-                  // google.maps event doesn't need stopPropagation here, but keeping your pattern
                   if (e?.stop) e.stop();
                   handleMarkerClick(quake);
                 }}
@@ -742,15 +624,7 @@ const MapComponent = ({
               </p>
 
               <p className="eq-time">
-                <strong>Time:</strong>
-                {isMobile ? (
-                  <>
-                    <br />
-                    {selectedEarthquake["Date-time"]}
-                  </>
-                ) : (
-                  <> {selectedEarthquake["Date-time"]}</>
-                )}
+                <strong>Time:</strong> {selectedEarthquake["Date-time"]}
               </p>
 
               <p>
@@ -771,16 +645,7 @@ const MapComponent = ({
               )}
 
 
-              {!isMobile && (
-                <button
-                  onClick={() => {
-                    cleanupDepthVisualization();
-                    setSelectedEarthquake(null);
-                  }}
-                >
-                  Close
-                </button>
-              )}
+              <button onClick={() => setSelectedEarthquake(null)}>Close</button>
             </div>
           )}
 
@@ -817,9 +682,7 @@ const MapComponent = ({
                       ).toFixed(3)}°`}
                     </p>
 
-                    {!isMobile && (
-                      <button onClick={() => setSelectedVolcano(null)}>Close</button>
-                    )}
+                    <button onClick={() => setSelectedVolcano(null)}>Close</button>
                   </>
                 );
               })()}
@@ -829,7 +692,6 @@ const MapComponent = ({
 
         </GoogleMap>
       </div>
-    </LoadScript>
   );
 };
 

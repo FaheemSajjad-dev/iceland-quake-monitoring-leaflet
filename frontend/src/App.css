@@ -124,12 +124,6 @@ input:checked + .slider:before {
   border-radius: 50%;
 }
 
-/* Phone-only adjustments (keep iPads = desktop) */
-@media (max-width: 480px) {
-  .controls h1 { font-size: 18px; }
-  .toggle-label { font-size: 12px; }
-}
-
 /*About Page*/
 
 .nav-button {
@@ -154,23 +148,3 @@ input:checked + .slider:before {
   z-index: 11;
 }
 
-/*----------------------*/
-
-/* Mobile: use dynamic viewport height so positioning matches the visible area */
-@media (max-width: 480px) {
-  html, body, #root, .app-container, .map-container {
-    height: 100dvh;  /* replaces 100vh when supported */
-    min-height: 100svh;
-  }
-}
-
-/*--------------------------*/
-
-@media (max-width: 480px) {
-  .controls {
-    top: calc(env(safe-area-inset-top) + 4px);
-  }
-  .about-button-container {
-    top: calc(env(safe-area-inset-top) + 10px);
-  }
-}

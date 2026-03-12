@@ -52,7 +52,7 @@ const App = () => {
     // Fetch data automatically
     useEffect(() => {
         loadData();
-        const interval = setInterval(loadData, 10000);
+        const interval = setInterval(loadData, 3 * 60 * 1000);
         return () => clearInterval(interval);
     }, []);
 
@@ -92,7 +92,7 @@ const App = () => {
         const mags = allData
             .map(q => parseFloat(q.Mw_mean))
             .filter(n => !isNaN(n));
-        setMaxMagnitude(mags.length ? Math.max(...mags, 2.7) : 5.8);
+        setMaxMagnitude(mags.length ? mags.reduce((a, b) => a > b ? a : b, 2.7) : 5.8);
     }, [allData, dateRange, magnitudeFilter]);
 
     const handleFilterChange = useCallback((sy, sm, ey, em, sd, ed) => {
