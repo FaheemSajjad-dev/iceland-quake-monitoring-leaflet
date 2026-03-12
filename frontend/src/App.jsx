@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import MapComponent from "./components/MapComponent";
 import TimeWindowSlider from "./components/TimeWindowSlider";
 import MagnitudeScale from "./components/MagnitudeScale";
@@ -35,8 +35,8 @@ const App = () => {
     // About overlay state
     const [showAbout, setShowAbout] = useState(false);
 
-    // Function to load earthquake data
-    const loadData = async () => {
+    // Load earthquake + volcano data
+    const loadData = useCallback(async () => {
         try {
             const data = await fetchEarthquakeData();
             console.log("Loaded earthquake data:", data.length);
@@ -48,14 +48,21 @@ const App = () => {
         } catch (error) {
             console.error("Error loading data:", error);
         }
-    };
+    }, []);
 
     // Fetch data automatically
     useEffect(() => {
         loadData();
         const interval = setInterval(loadData, 3 * 60 * 1000);
         return () => clearInterval(interval);
-    }, []);
+    }, [loadData]);
+
+    // Max magnitude — only depends on allData, not on filter state
+    useEffect(() => {
+        if (allData.length === 0) return;
+        const mags = allData.map(q => parseFloat(q.Mw_mean)).filter(n => !isNaN(n));
+        setMaxMagnitude(mags.length ? mags.reduce((a, b) => a > b ? a : b, 2.7) : 5.8);
+    }, [allData]);
 
     // Filter data based on selected date range and magnitude
     useEffect(() => {
@@ -89,11 +96,6 @@ const App = () => {
         });
 
         setFilteredData(filtered);
-
-        const mags = allData
-            .map(q => parseFloat(q.Mw_mean))
-            .filter(n => !isNaN(n));
-        setMaxMagnitude(mags.length ? mags.reduce((a, b) => a > b ? a : b, 2.7) : 5.8);
     }, [allData, dateRange, magnitudeFilter]);
 
     const handleFilterChange = useCallback((sy, sm, ey, em, sd, ed) => {
@@ -109,9 +111,10 @@ const App = () => {
         });
     }, []);
 
-    const handleMapTypeChange = type => setIsDarkMode(type === "dark_mode");
-    const toggleVolcanoes = () => setShowVolcanoes(v => !v);
-    const handleMagnitudeFilterChange = v => setMagnitudeFilter(v);
+    const handleMapTypeChange = useCallback(type => setIsDarkMode(type === "dark_mode"), []);
+    const toggleVolcanoes = useCallback(() => setShowVolcanoes(v => !v), []);
+    const handleMagnitudeFilterChange = useCallback(v => setMagnitudeFilter(v), []);
+    const emptyVolcanoes = useMemo(() => [], []);
     return (
         <div className="app-container">
             <div className="map-container">
@@ -138,7 +141,7 @@ const App = () => {
 
                 <MapComponent
                     earthquakes={filteredData}
-                    volcanoes={showVolcanoes ? volcanoData : []}
+                    volcanoes={showVolcanoes ? volcanoData : emptyVolcanoes}
                     maxMagnitude={maxMagnitude}
                     onMapTypeChange={handleMapTypeChange}
                     showVolcanoes={showVolcanoes}

@@ -1,6 +1,5 @@
 import requests
 from bs4 import BeautifulSoup
-import pandas as pd
 from datetime import datetime
 import re
 import os
@@ -34,7 +33,7 @@ BASE_URL = 'http://hraun.vedur.is/ja/Mpgv/'
 def get_monthly_data(year, month):
     """Scrapes data for a specific month and filters by magnitude >= 2.7."""
     url = f"{BASE_URL}{year}/{year}-{str(month).zfill(2)}.html"
-    response = requests.get(url)
+    response = requests.get(url, timeout=20)
     soup = BeautifulSoup(response.content, 'html.parser')
     table = soup.find('table', class_='dataframe')
 
@@ -93,7 +92,7 @@ def _scrape_and_save_with_flask():
     """Implementation that uses Flask app context and SQLAlchemy."""
     from app import db, Earthquake
     
-    response = requests.get(BASE_URL)
+    response = requests.get(BASE_URL, timeout=20)
     soup = BeautifulSoup(response.content, 'html.parser')
     year_links = sorted([a['href'].strip('/') for a in soup.find_all('a', href=re.compile(r'^\d{4}/$'))], reverse=True)
 
@@ -101,12 +100,12 @@ def _scrape_and_save_with_flask():
 
     for year in year_links:
         year_url = f"{BASE_URL}{year}/"
-        year_response = requests.get(year_url)
+        year_response = requests.get(year_url, timeout=20)
         year_soup = BeautifulSoup(year_response.content, 'html.parser')
         month_links = sorted([a['href'].strip('.html') for a in year_soup.find_all('a', href=re.compile(r'^\d{4}-\d{2}\.html$'))], reverse=True)
 
         for month in month_links:
-            year, month_num = month.split('-')
+            _yr, month_num = month.split('-')
             monthly_data = get_monthly_data(year, month_num)
 
             for quake in monthly_data:
@@ -140,7 +139,7 @@ def _scrape_and_save_with_sqlite():
     )
     ''')
     
-    response = requests.get(BASE_URL)
+    response = requests.get(BASE_URL, timeout=20)
     soup = BeautifulSoup(response.content, 'html.parser')
     year_links = sorted([a['href'].strip('/') for a in soup.find_all('a', href=re.compile(r'^\d{4}/$'))], reverse=True)
 
@@ -148,12 +147,12 @@ def _scrape_and_save_with_sqlite():
 
     for year in year_links[:1]:  # Limit to most recent year for faster processing
         year_url = f"{BASE_URL}{year}/"
-        year_response = requests.get(year_url)
+        year_response = requests.get(year_url, timeout=20)
         year_soup = BeautifulSoup(year_response.content, 'html.parser')
         month_links = sorted([a['href'].strip('.html') for a in year_soup.find_all('a', href=re.compile(r'^\d{4}-\d{2}\.html$'))], reverse=True)
 
         for month in month_links[:2]:  # Limit to most recent 2 months for faster processing
-            year, month_num = month.split('-')
+            _yr, month_num = month.split('-')
             monthly_data = get_monthly_data(year, month_num)
 
             for quake in monthly_data:

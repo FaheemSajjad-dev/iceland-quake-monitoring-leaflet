@@ -138,12 +138,16 @@ def fetch_skjalftalisa(
         data = payload.get("data", {})
 
         # The service returns columnar arrays: data = { "lat": [...], "long": [...], ... }
+        # When no results exist it returns {"lat": null, ...} instead of {"lat": [], ...}
         if not isinstance(data, dict) or not data:
             continue
+        keys = list(data.keys())
+        first_col = data[keys[0]] if keys else None
+        if not isinstance(first_col, list):
+            continue  # null columns = no results for this chunk
 
         # Build rows
-        keys = list(data.keys())
-        n_rows = len(data[keys[0]]) if keys else 0
+        n_rows = len(first_col)
 
         for i in range(n_rows):
             raw = {k: data[k][i] for k in keys}

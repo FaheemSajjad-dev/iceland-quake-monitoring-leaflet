@@ -116,8 +116,7 @@ const About = ({ onClose }) => {
               dynamically shades markers according to their seismic strength. Users can
               easily switch between these color schemes using dedicated toggle buttons. The
               system also integrates <strong>ShakeMap data</strong> for visualizing ground
-              motion intensity, <strong>depth cross-sections</strong> for vertical analysis,
-              and <strong>volcano overlays</strong> featuring 33 Icelandic volcanoes with
+              motion intensity, and <strong>volcano overlays</strong> featuring 33 Icelandic volcanoes with
               their current status and detailed information retrieved from the
               <strong> EPOS API</strong>. Explore all features live on the map:
               <br />

@@ -8,6 +8,7 @@ import threading
 import csv
 import io
 import math
+import time
 import requests
 
 from datetime import datetime, timedelta, timezone
@@ -42,7 +43,7 @@ print(f"Using database at: {DB_PATH}")
 
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DB_PATH}"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_size": 5, "pool_recycle": 280}
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"connect_args": {"check_same_thread": False}}
 
 db = SQLAlchemy(app)
 
@@ -153,6 +154,10 @@ _scheduler = None
 _scheduler_lock = threading.Lock()
 _scheduler_started = False
 
+# Simple in-memory cache for /earthquakes (invalidated after each scrape cycle)
+_eq_cache: dict = {"data": None, "ts": 0.0}
+_EQ_CACHE_TTL = 60  # seconds — frontend polls every 3 min, so 60s is fine
+
 # -----------------------------------------------------------------------------
 # Scheduled job
 # -----------------------------------------------------------------------------
@@ -160,21 +165,33 @@ def scheduled_scrape() -> None:
     """
     Every 3 minutes:
       1) Scrape MPGV (updates Earthquake)
-      2) Reconcile (write EarthquakeMerged)
+      2) Fetch recent Skjálftalísa data (last 7 days, rolling)
+      3) Reconcile (write EarthquakeMerged)
     """
     with app.app_context():
         # avoid circular imports
         sys.path.append(CURRENT_FILE_PATH)
         from scrape import scrape_all_earthquake_data
         from reconcile import match_and_merge
+        from skjalftalisa_client import fetch_last_n_days, store_skjalftalisa_rows
 
         # Step 1: scrape MPGV (already filtered at Mw >= 2.7 in scrape.py)
         scrape_all_earthquake_data()
 
-        # Step 2: reconcile v & s into merged
+        # Step 2: fetch recent Skjálftalísa events (incremental, last 7 days)
+        try:
+            rows = fetch_last_n_days(7, size_min=2.7)
+            store_skjalftalisa_rows(rows)
+        except Exception as e:
+            print(f"[WARN] Skjálftalísa fetch failed: {e}")
+
+        # Step 3: reconcile v & s into merged
         end = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         start = "2020-06-01 00:00:00"
         match_and_merge(start, end, min_mag=2.7)
+
+        # Invalidate response cache so next request gets fresh reconciled data
+        _eq_cache["data"] = None
 
 def start_background_services() -> None:
     global _scheduler, _scheduler_started
@@ -212,8 +229,15 @@ def get_earthquake_data():
     - default: ALL data (to preserve existing frontend behavior)
     - optional: ?days=NN to limit to recent window
     - optional: ?days=all explicitly returns all
+    Cached for _EQ_CACHE_TTL seconds; cache is also invalidated after each scrape.
     """
     days_param = (request.args.get("days") or "all").strip().lower()
+
+    # Serve from cache only for the default "all" case
+    if days_param == "all":
+        now = time.time()
+        if _eq_cache["data"] is not None and (now - _eq_cache["ts"]) < _EQ_CACHE_TTL:
+            return _eq_cache["data"]
 
     with app.app_context():
         q = EarthquakeMerged.query
@@ -224,12 +248,10 @@ def get_earthquake_data():
                 cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
                 q = q.filter(EarthquakeMerged.date_time >= cutoff)
             except ValueError:
-                # bad days param -> fallback to ALL
                 pass
 
         rows = q.order_by(EarthquakeMerged.date_time.desc()).all()
-
-        return jsonify([
+        result = jsonify([
             {
                 "Date-time": r.date_time,
                 "Latitude":  r.latitude,
@@ -239,6 +261,12 @@ def get_earthquake_data():
                 "status":    r.status
             } for r in rows
         ])
+
+        if days_param == "all":
+            _eq_cache["data"] = result
+            _eq_cache["ts"] = time.time()
+
+        return result
 
 @app.route("/earthquakes_csv", methods=["GET"])
 def get_earthquake_data_csv():
@@ -380,16 +408,7 @@ def shakemap_lookup():
     except Exception:
         return jsonify({"found": False, "reason": "bad dt format"}), 400
 
-    # search window & Iceland bbox
-    window = timedelta(hours=6)  # generous to be safe
-    start_time = (evt_dt - window).strftime("%Y-%m-%dT%H:%M:%S")
-    end_time   = (evt_dt + window).strftime("%Y-%m-%dT%H:%M:%S")
-    bbox = "62.8,-25.0,67.0,-12.5"
-
-    url = (
-        "https://api.epos-iceland.is/v1/seismic/shakemaps"
-        f"?start_time={start_time}&end_time={end_time}&bbox={bbox}"
-    )
+    url = "https://api.vedur.is/epos/seismic/shakemaps"
 
     try:
         r = requests.get(url, timeout=20)
@@ -438,7 +457,7 @@ def shakemap_lookup():
 # --- Return validated ShakeMap URL for an event -----------------------------
 @app.route("/shakemap/<dt>", methods=["GET"])
 def shakemap(dt):
-    link = ShakeMapLink.query.get(dt)
+    link = db.session.get(ShakeMapLink, dt)
     if not link or link.status != "valid":
         return {"available": False}, 200
     return {
@@ -456,4 +475,4 @@ def shakemap(dt):
 if __name__ == "__main__":
     print(f"Starting server with database at: {DB_PATH}")
     start_background_services()
-    app.run(debug=True)
+    app.run(debug=True, port=5001)

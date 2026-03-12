@@ -1,17 +1,26 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import './MagnitudeScale.css';
 
 const MagnitudeScale = ({ minMagnitude, maxMagnitude, onMagnitudeFilterChange, colorOwner }) => {
 
   const [filterValue, setFilterValue] = useState(minMagnitude);
+  const debounceRef = useRef(null);
+
+  // Clamp filterValue if maxMagnitude shrinks (e.g. time window change), so indicator stays on-screen
+  useEffect(() => {
+    setFilterValue(prev => Math.min(prev, maxMagnitude));
+  }, [maxMagnitude]);
 
   const handleSliderChange = (e) => {
     const value = parseFloat(e.target.value);
     const invertedValue = maxMagnitude - (value - minMagnitude);
+    // Update visual position immediately
     setFilterValue(invertedValue);
-    if (onMagnitudeFilterChange) {
-      onMagnitudeFilterChange(invertedValue);
-    }
+    // Defer the expensive filter+marker rebuild until dragging pauses
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      if (onMagnitudeFilterChange) onMagnitudeFilterChange(invertedValue);
+    }, 150);
   };
 
   const sliderDisplayValue = maxMagnitude - (filterValue - minMagnitude);

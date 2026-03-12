@@ -10,7 +10,16 @@
       "Bash(python -c \":*)",
       "Bash(curl -s \"https://api.epos-iceland.is/v1/volcano/general-information/list-of-volcanoes\")",
       "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(type\\(d\\).__name__\\); print\\(list\\(d.keys\\(\\)\\) if isinstance\\(d,dict\\) else f''''list of {len\\(d\\)}, first keys: {list\\(d[0].keys\\(\\)\\) if d else \"\"empty\"\"}''''\\)\")",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://api.epos-iceland.is/v1/volcano/general-information/list-of-volcanoes\")"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://api.epos-iceland.is/v1/volcano/general-information/list-of-volcanoes\")",
+      "Bash(npm test:*)",
+      "Bash(npm install:*)",
+      "Bash(npx vitest:*)",
+      "Bash(rsync -a --exclude='node_modules' --exclude='dist' --exclude='__pycache__' --exclude='*.pyc' --exclude='.git' f:/iceland-quake-monitoring/ f:/iceland-quake-monitoring-leaflet/)",
+      "Bash(robocopy \"f:\\\\iceland-quake-monitoring\" \"f:\\\\iceland-quake-monitoring-leaflet\" /E /XD node_modules dist __pycache__ .git /XF \"*.pyc\" \"*.db\" \"*.db-shm\" \"*.db-wal\")",
+      "Bash(robocopy \"f:\\\\iceland-quake-monitoring\" \"f:\\\\iceland-quake-monitoring-leaflet\" /S /XD \"node_modules\" \"dist\" \"__pycache__\" \".git\" /XF \"*.pyc\" \"*.db\" \"*.db-shm\" \"*.db-wal\")",
+      "Bash(powershell -Command \"robocopy ''f:\\\\iceland-quake-monitoring'' ''f:\\\\iceland-quake-monitoring-leaflet'' /E /XD node_modules dist __pycache__ .git /XF ''*.pyc'' ''*.db'' ''*.db-shm'' ''*.db-wal''; if \\($LASTEXITCODE -le 7\\) { Write-Host ''Done'' } else { Write-Host ''Error'' $LASTEXITCODE }\")",
+      "Bash(powershell -Command \"Remove-Item -Recurse -Force ''f:\\\\iceland-quake-monitoring-leaflet'' -ErrorAction SilentlyContinue; Write-Host ''cleaned''\")",
+      "Bash(powershell -Command \"robocopy ''f:\\\\iceland-quake-monitoring'' ''f:\\\\iceland-quake-monitoring-leaflet'' /E /XD node_modules dist __pycache__ .git venv .pytest_cache .vs; Write-Host ''Done''\")"
     ]
   }
 }

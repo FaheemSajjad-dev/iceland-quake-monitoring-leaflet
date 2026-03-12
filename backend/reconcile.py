@@ -52,12 +52,10 @@ def match_and_merge(start_utc, end_utc, min_mag=2.7):
         # 4) Match each v to s by your rules
         inserted = 0
         for v in v_rows:
-            # try ±2 seconds around v.date_time (enforces |Δt| < 3s)
-            t_candidates = []
+            # try ±2 seconds around v.date_time (enforces |Δt| ≤ 2s)
             vt = v.date_time  # 'YYYY-MM-DD HH:MM:SS'
             # build nearby seconds strings
-            from datetime import datetime as _dt, timezone as _tz
-            base = _dt.strptime(vt, "%Y-%m-%d %H:%M:%S")
+            base = datetime.strptime(vt, "%Y-%m-%d %H:%M:%S")
             secs = [(base + timedelta(seconds=delta)).strftime("%Y-%m-%d %H:%M:%S") for delta in (-2, -1, 0, 1, 2)]
 
             candidates = []
@@ -71,7 +69,7 @@ def match_and_merge(start_utc, end_utc, min_mag=2.7):
                     if dm >= DM_LIMIT:
                         continue
                     # keep (distance, abs dt, dm, s)
-                    dt_abs = abs((_dt.strptime(vt, "%Y-%m-%d %H:%M:%S") - _dt.strptime(s.date_time, "%Y-%m-%d %H:%M:%S")).total_seconds())
+                    dt_abs = abs((datetime.strptime(vt, "%Y-%m-%d %H:%M:%S") - datetime.strptime(s.date_time, "%Y-%m-%d %H:%M:%S")).total_seconds())
                     candidates.append((dist, dt_abs, dm, s))
 
             # after you’ve built the `candidates` list …

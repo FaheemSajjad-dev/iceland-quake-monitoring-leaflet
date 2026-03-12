@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import './TimeWindowSlider.css';
 
-const TimeWindowSlider = ({ onFilterChange, colorOwner = 'time' }) => {
+const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
   // Starting date: June 1, 2020.
   const startDate = new Date(2020, 5, 1);
   const currentDate = new Date();
@@ -303,8 +303,6 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'time' }) => {
       if (slider) {
         slider.removeEventListener("wheel", handleWheel);
       }
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
     };
   }, [zoomLevel, viewOffset, isDayViewMode]);
 

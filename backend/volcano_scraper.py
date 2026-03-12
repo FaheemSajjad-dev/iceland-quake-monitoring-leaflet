@@ -130,6 +130,10 @@ def fetch_and_merge() -> List[Dict]:
 
 # ---------- db ----------
 def save_volcanoes_to_db(volcanoes: List[Dict], db_path: Optional[str] = None) -> bool:
+    if not volcanoes:
+        print("[WARN] No volcano data to save; skipping DELETE to preserve existing rows.")
+        return False
+
     if db_path is None:
         current_file_path = os.path.dirname(os.path.abspath(__file__))
         db_dir = os.path.join(current_file_path, "data")
@@ -151,6 +155,8 @@ def save_volcanoes_to_db(volcanoes: List[Dict], db_path: Optional[str] = None) -
         UNIQUE(name, latitude, longitude)
     )
     """)
+
+    # Delete only after confirming we have rows to insert (prevents empty table on API failure)
     cur.execute("DELETE FROM volcano")
 
     count = 0

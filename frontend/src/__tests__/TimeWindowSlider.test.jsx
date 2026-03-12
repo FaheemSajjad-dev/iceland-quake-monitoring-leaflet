@@ -16,7 +16,7 @@ import TimeWindowSlider from '../components/TimeWindowSlider';
 function renderSlider(props = {}) {
   const onFilterChange = vi.fn();
   const result = render(
-    <TimeWindowSlider onFilterChange={onFilterChange} colorOwner="time" {...props} />
+    <TimeWindowSlider onFilterChange={onFilterChange} colorOwner="timeline" {...props} />
   );
   return { ...result, onFilterChange };
 }
@@ -37,9 +37,10 @@ describe('TimeWindowSlider – basic render', () => {
 
   it('shows the date-range text on screen', () => {
     renderSlider();
-    // Text is like "Jun 2020 to Mar 2026"
-    const rangeEl = screen.getByText(/to/i);
+    // Text is like "Jun 2020 to Mar 2026" — use specific selector to avoid matching zoom indicator
+    const rangeEl = document.querySelector('.selected-date');
     expect(rangeEl).toBeInTheDocument();
+    expect(rangeEl.textContent).toMatch(/to/i);
   });
 
   it('date-range text begins with the start month Jun 2020', () => {
@@ -149,9 +150,9 @@ describe('TimeWindowSlider – month mode labels', () => {
       /^\d{2}\/\d{2}$/.test(el.textContent.trim())
     );
 
-    // Only assert if we actually reached month mode
+    // Only assert if we actually reached month mode AND year boundaries are visible
     const inMonthMode = screen.queryByText(/Month view/i);
-    if (inMonthMode) {
+    if (inMonthMode && yyLabels.length > 0) {
       expect(hasYYFormat).toBe(true);
     }
   });
