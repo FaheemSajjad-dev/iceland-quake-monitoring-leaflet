@@ -6,7 +6,7 @@ match_and_merge(), then asserts the correct rows appear in earthquake_merged.
 
 Thresholds (from reconcile.py):
     DIST_LIMIT_KM = 10.0   → distance between V and S must be < 10 km
-    DM_LIMIT      = 2.0    → |mw_v - mag_s| must be < 2.0
+    DM_LIMIT      = 3.0    → |mw_v - mag_s| must be < 3.0
     Time window   = ±2 s   → |Δt| must be <= 2 seconds to be a candidate
 """
 import pytest
@@ -102,12 +102,12 @@ def test_v_only_time_outside_window(db_session):
 
 
 # ---------------------------------------------------------------------------
-# 5. Magnitude difference too large (≥ 2.0) → v_only
+# 5. Magnitude difference too large (≥ 3.0) → v_only
 # ---------------------------------------------------------------------------
 def test_v_only_magnitude_diff_too_large(db_session):
     add_v(mw=3.5)
-    # Δm = |3.5 - 6.0| = 2.5 ≥ 2.0
-    add_s("s004", dt="2023-06-15 12:00:01", lat=64.005, lon=-22.005, mag=6.0)
+    # Δm = |3.5 - 7.0| = 3.5 ≥ 3.0
+    add_s("s004", dt="2023-06-15 12:00:01", lat=64.005, lon=-22.005, mag=7.0)
     run_merge()
     rows = merged_rows()
     assert len(rows) == 1
@@ -115,12 +115,12 @@ def test_v_only_magnitude_diff_too_large(db_session):
 
 
 # ---------------------------------------------------------------------------
-# 6. Magnitude difference exactly at limit (= 2.0) → v_only (not matched)
+# 6. Magnitude difference exactly at limit (= 3.0) → v_only (not matched)
 # ---------------------------------------------------------------------------
 def test_v_only_magnitude_diff_exactly_at_limit(db_session):
     add_v(mw=3.5)
-    # Δm = 2.0, condition is dm >= DM_LIMIT (2.0), so this should be excluded
-    add_s("s005", dt="2023-06-15 12:00:01", lat=64.005, lon=-22.005, mag=5.5)
+    # Δm = 3.0, condition is dm >= DM_LIMIT (3.0), so this should be excluded
+    add_s("s005", dt="2023-06-15 12:00:01", lat=64.005, lon=-22.005, mag=6.5)
     run_merge()
     rows = merged_rows()
     assert rows[0].status == "v_only"
