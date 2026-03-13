@@ -40,9 +40,9 @@ Each MPGV event is matched against Skjálftalísa records using three thresholds
 |---|---|
 | Time difference | ≤ 2 seconds |
 | Distance | < 10 km |
-| Magnitude difference | < 2.0 |
+| Magnitude difference | < 3.0 |
 
-When a unique match is found, the Skjálftalísa location and depth replace the MPGV values. Current coverage: **~83%** of MPGV events matched.
+When a unique match is found, the Skjálftalísa location and depth replace the MPGV values. Current coverage: **~81%** of MPGV events matched.
 
 ---
 
@@ -128,7 +128,7 @@ npm test
 | Scheduler interval | Every 3 minutes |
 | Reconcile: max distance | 10 km |
 | Reconcile: max time diff | 2 seconds |
-| Reconcile: max mag diff | 2.0 |
+| Reconcile: max mag diff | 3.0 |
 | DB location | `backend/data/earthquakes.db` |
 
 ---
