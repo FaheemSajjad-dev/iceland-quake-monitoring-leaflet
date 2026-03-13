@@ -51,7 +51,6 @@ def match_and_merge(start_utc, end_utc, min_mag=2.7):
 
         # 4) Match each v to s by your rules
         inserted = 0
-        matched_s_ids = set()  # track which S events were consumed by a match
         for v in v_rows:
             # try ±2 seconds around v.date_time (enforces |Δt| ≤ 2s)
             vt = v.date_time  # 'YYYY-MM-DD HH:MM:SS'
@@ -95,8 +94,6 @@ def match_and_merge(start_utc, end_utc, min_mag=2.7):
             elif len(candidates) == 1:
                 # exactly one → accept (use S location and depth)
                 dist, dt_abs, dm, s_best = candidates[0]
-                matched_s_ids.add(s_best.event_id)
-
                 # ----- DEPTH POLICY -----
                 # 'v' = MPGV depth
                 # 's' = Skjalftalísa depth
@@ -152,29 +149,7 @@ def match_and_merge(start_utc, end_utc, min_mag=2.7):
                 inserted += 1
 
 
-        # 5) Insert s_only: S events that were never matched to any V event
-        for s in s_rows:
-            if s.event_id in matched_s_ids:
-                continue
-            if s.magnitude is not None and s.magnitude < min_mag:
-                continue
-            m = EarthquakeMerged(
-                date_time=s.date_time,
-                latitude=s.latitude,
-                longitude=s.longitude,
-                depth=s.depth,
-                mw_mean=s.magnitude or 0.0,
-                status="s_only",
-                s_event_id=s.event_id,
-                match_dt_sec=None,
-                match_dist_km=None,
-                match_dm=None
-            )
-            db.session.add(m)
-            inserted += 1
-
         db.session.commit()
-
         print(f"Merged rows written: {inserted}")
 
 if __name__ == "__main__":
