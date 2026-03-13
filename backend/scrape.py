@@ -16,8 +16,6 @@ os.makedirs(DB_DIR, exist_ok=True)
 # Define the database path
 DB_PATH = os.path.join(DB_DIR, "earthquakes.db")
 
-print(f"Scraper will use database at: {DB_PATH}")
-
 # Import app-related components only when running within Flask context
 try:
     # We will try to import from app, but be prepared for it to fail

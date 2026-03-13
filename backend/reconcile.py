@@ -51,6 +51,8 @@ def match_and_merge(start_utc, end_utc, min_mag=2.7):
 
         # 4) Match each v to s by your rules
         inserted = 0
+        n_matched = 0
+        n_v_only = 0
         for v in v_rows:
             # try ±2 seconds around v.date_time (enforces |Δt| ≤ 2s)
             vt = v.date_time  # 'YYYY-MM-DD HH:MM:SS'
@@ -90,6 +92,7 @@ def match_and_merge(start_utc, end_utc, min_mag=2.7):
                 )
                 db.session.add(m)
                 inserted += 1
+                n_v_only += 1
 
             elif len(candidates) == 1:
                 # exactly one → accept (use S location and depth)
@@ -128,6 +131,7 @@ def match_and_merge(start_utc, end_utc, min_mag=2.7):
                 )
                 db.session.add(m)
                 inserted += 1
+                n_matched += 1
 
             else:
                 # ambiguous (≥2). Choose policy:
@@ -147,10 +151,12 @@ def match_and_merge(start_utc, end_utc, min_mag=2.7):
                 )
                 db.session.add(m)
                 inserted += 1
-
+                n_v_only += 1
 
         db.session.commit()
-        print(f"Merged rows written: {inserted}")
+        print(f"Total: {inserted}")
+        print(f"  Matched: {n_matched}")
+        print(f"  V-only:  {n_v_only}")
 
 if __name__ == "__main__":
     end = datetime.now(timezone.utc).replace(microsecond=0)

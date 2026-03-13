@@ -184,7 +184,6 @@ def store_skjalftalisa_rows(rows):
     Safe to call repeatedly; unchanged rows are updated idempotently.
     """
     if not rows:
-        print("No Skjálftalísa rows to store.")
         return
 
     inserted = 0

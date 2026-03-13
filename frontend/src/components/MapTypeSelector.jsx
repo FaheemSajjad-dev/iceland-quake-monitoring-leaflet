@@ -15,6 +15,7 @@ const MapTypeSelector = ({ onMapTypeChange }) => {
             case 'roadmap': return 'Map';
             case 'satellite': return 'Satellite';
             case 'dark_mode': return 'Dark Mode';
+            case 'heatmap': return 'Heatmap';
             default: return type;
         }
     };
@@ -42,11 +43,17 @@ const MapTypeSelector = ({ onMapTypeChange }) => {
                     >
                         Satellite
                     </button>
-                    <button 
+                    <button
                         className={`map-type-option ${selectedType === 'dark_mode' ? 'active' : ''}`}
                         onClick={() => handleTypeChange('dark_mode')}
                     >
                         Dark Mode
+                    </button>
+                    <button
+                        className={`map-type-option ${selectedType === 'heatmap' ? 'active' : ''}`}
+                        onClick={() => handleTypeChange('heatmap')}
+                    >
+                        Heatmap
                     </button>
                 </div>
             )}

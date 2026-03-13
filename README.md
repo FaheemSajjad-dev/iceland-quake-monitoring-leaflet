@@ -18,8 +18,8 @@ This is the **Leaflet clone** of the original Google Maps version — no API key
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18 + Vite, react-leaflet 4 |
-| Map tiles | OpenStreetMap · Esri World Imagery · CartoDB Dark Matter |
+| Frontend | React 18 + Vite, react-leaflet 4, leaflet.heat, d3-contour |
+| Map tiles | OpenStreetMap · Esri World Imagery · CartoDB Dark Matter · CartoDB Voyager |
 | Backend | Python 3, Flask, SQLAlchemy, APScheduler |
 | Database | SQLite (WAL mode) |
 | Tests | pytest (backend) · Vitest + Testing Library (frontend) |
@@ -56,8 +56,39 @@ When a unique match is found, the Skjálftalísa location and depth replace the 
 - **Volcano overlay** — 33 Icelandic volcanoes with status and EPOS metadata
 - **ShakeMap links** — info window shows a ShakeMap button for eligible events
 - **Data export** — download the full merged catalogue as CSV
-- Three map tile layers: roadmap, satellite, dark mode
+- **Four map layers:** roadmap, satellite, dark mode, and heatmap (see below)
 - Scale control and coordinate grid overlay
+
+### Heatmap Layer
+
+The **Heatmap** is the 4th map type, designed for density analysis rather than individual event inspection.
+
+| Component | Detail |
+|---|---|
+| Base tile | CartoDB Voyager (no-labels variant) |
+| Heat overlay | `leaflet.heat` — magnitude-weighted density |
+| Labels tile | CartoDB Voyager (labels-only) in a Leaflet `Pane` at z-index 650, rendered above the heat |
+| Contour outlines | `d3-contour` kernel density estimation on a 200 × 120 grid |
+
+**Heatmap weight:** each earthquake contributes `magnitude` units of heat — stronger events show more prominently.
+
+**Gradient:** blue → cyan → green → yellow → orange → red.
+
+**Contour outline behaviour (dynamic):**
+- 4 levels at the 60th / 75th / 88th / 95th percentiles of non-zero grid values
+- Colours: `#4488ff` → `#00ddaa` → `#ffdd00` → `#ff5500` with increasing line weight
+- Zoom-responsive smoothing: `σ = max(3, round(40 / 2^(zoom−4)))` — coarser at low zoom, finer at high zoom
+- Viewport-aware: grid bounds track the current map view (`map.getBounds()`)
+- Recomputes on every `zoomend` and `moveend` event
+
+**Behaviour differences from other layers:**
+- Earthquake markers are hidden (removed via `L.layerGroup`, O(1))
+- Timeline / Magnitude colour toggle is not shown
+- Minimum zoom level is **5** (other layers: 6)
+
+**Dependencies added for this layer:** `leaflet.heat`, `d3-contour`, `d3-array`
+
+> `leaflet.heat` requires `window.L` to be set before it is imported. It is loaded dynamically inside a `useEffect` after `window.L = L` to avoid a hoisting issue.
 
 ---
 

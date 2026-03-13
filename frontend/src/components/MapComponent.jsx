@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { MapContainer, TileLayer, ScaleControl, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Pane, ScaleControl, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import MapTypeSelector from "./MapTypeSelector";
@@ -75,6 +75,26 @@ const TILE_LAYERS = {
 
 // ─── TileLayer switcher ───────────────────────────────────────────────────────
 const TileLayerManager = ({ mapType }) => {
+  if (mapType === "heatmap") {
+    // Base terrain (no labels) → heatmap renders above this → labels on top
+    return (
+      <>
+        <TileLayer
+          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+          maxZoom={19}
+          zIndex={1}
+        />
+        <Pane name="heatmap-labels" style={{ zIndex: 650 }}>
+          <TileLayer
+            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png"
+            attribution=""
+            maxZoom={19}
+          />
+        </Pane>
+      </>
+    );
+  }
   const layer = TILE_LAYERS[mapType] || TILE_LAYERS.roadmap;
   return (
     <TileLayer
@@ -84,6 +104,15 @@ const TileLayerManager = ({ mapType }) => {
       maxZoom={layer.maxZoom}
     />
   );
+};
+
+// ─── Dynamic minZoom controller ──────────────────────────────────────────────
+const MinZoomController = ({ mapType }) => {
+  const map = useMap();
+  useEffect(() => {
+    map.setMinZoom(mapType === "heatmap" ? 5 : 6);
+  }, [map, mapType]);
+  return null;
 };
 
 // ─── Map click handler ────────────────────────────────────────────────────────
@@ -226,19 +255,36 @@ const makeQuakeIcon = (px, color, isSelected) => {
 };
 
 // ─── Earthquake markers ───────────────────────────────────────────────────────
-const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMarkerClick }) => {
+const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMarkerClick, visible }) => {
   const map = useMap();
-  const markersMapRef = useRef(new Map()); // key -> { marker, quake, index }
+  const layerGroupRef = useRef(null);
+  const markersMapRef = useRef(new Map());
   const prevSelectedRef = useRef(null);
-  // Keep latest values accessible to effects without adding them as deps
   const selectedEqRef = useRef(selectedEarthquake);
   const markerIconsRef = useRef(markerIcons);
   selectedEqRef.current = selectedEarthquake;
   markerIconsRef.current = markerIcons;
 
-  // Rebuild all markers only when the data set or icon palette changes — NOT on selection
+  // Create LayerGroup once — single removeLayer() call hides every marker instantly
   useEffect(() => {
-    markersMapRef.current.forEach(({ marker }) => map.removeLayer(marker));
+    const lg = L.layerGroup().addTo(map);
+    layerGroupRef.current = lg;
+    return () => { map.removeLayer(lg); layerGroupRef.current = null; };
+  }, [map]);
+
+  // Toggle entire layer group on/off — O(1), no per-marker loop
+  useEffect(() => {
+    const lg = layerGroupRef.current;
+    if (!lg) return;
+    if (visible) { if (!map.hasLayer(lg)) lg.addTo(map); }
+    else { map.removeLayer(lg); }
+  }, [map, visible]);
+
+  // Rebuild markers into the layer group when data or icons change
+  useEffect(() => {
+    const lg = layerGroupRef.current;
+    if (!lg) return;
+    lg.clearLayers();
     markersMapRef.current = new Map();
 
     const sel = selectedEqRef.current;
@@ -258,15 +304,10 @@ const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMar
 
       const marker = L.marker([lat, lng], { icon, zIndexOffset: 10 })
         .on("click", (e) => { L.DomEvent.stopPropagation(e); onMarkerClick(quake); })
-        .addTo(map);
+        .addTo(lg);
 
       markersMapRef.current.set(quakeKey(quake), { marker, quake, index });
     });
-
-    return () => {
-      markersMapRef.current.forEach(({ marker }) => map.removeLayer(marker));
-      markersMapRef.current = new Map();
-    };
   }, [map, earthquakes, markerIcons, onMarkerClick]);
 
   // On selection change: update only the two affected markers (O(1) instead of O(n))
@@ -285,6 +326,84 @@ const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMar
     updateIcon(prev, false);
     updateIcon(selectedEarthquake, true);
   }, [selectedEarthquake]);
+
+  return null;
+};
+
+// ─── Native heatmap layer (leaflet.heat) ─────────────────────────────────────
+// Standard seismic color ramp: transparent → blue → cyan → green → yellow → orange → red
+const HEAT_GRADIENT = {
+  0.00: 'rgba(33,102,172,0)',  // transparent
+  0.15: '#2c7bb6',              // medium blue   (first visible)
+  0.35: '#41b6c4',              // cyan-blue
+  0.55: '#ffffb2',              // pale yellow
+  0.70: '#ffff33',              // bright yellow
+  0.85: '#ff8c00',              // orange
+  1.00: '#e31a1c',              // strong red
+};
+
+// Pixel radius by zoom — grows with zoom so clusters remain visible when inspecting detail
+const heatRadius = (z) => {
+  if (z <= 5)  return 10;
+  if (z <= 6)  return 15;
+  if (z <= 7)  return 21;
+  if (z <= 8)  return 29;
+  if (z <= 9)  return 39;
+  return 52;
+};
+
+const HeatmapLayer = ({ earthquakes }) => {
+  const map = useMap();
+  const heatRef = useRef(null);
+  const [pluginReady, setPluginReady] = useState(false);
+
+  // Load leaflet.heat once — must set window.L before the dynamic import
+  useEffect(() => {
+    window.L = L;
+    import("leaflet.heat").then(() => setPluginReady(true));
+  }, []);
+
+  const rebuild = useCallback(() => {
+    if (!pluginReady) return;
+    if (heatRef.current) { map.removeLayer(heatRef.current); heatRef.current = null; }
+    if (earthquakes.length === 0) return;
+
+    const zoom = map.getZoom();
+    const r    = heatRadius(zoom);
+
+    const points = earthquakes.map(q => {
+      const lat = parseFloat(q.Latitude);
+      const lng = parseFloat(q.Longitude);
+      const mag = parseFloat(q.Mw_mean);
+      if (isNaN(lat) || isNaN(lng) || isNaN(mag)) return null;
+      // Density-first: every quake = 1.0; tiny boost for significant events
+      // Mw <4 → 1.0  |  Mw 4–5 → 1.1  |  Mw 5+ → 1.2
+      const wt = mag >= 5.0 ? 1.2 : mag >= 4.0 ? 1.1 : 1.0;
+      return [lat, lng, wt];
+    }).filter(Boolean);
+
+    heatRef.current = L.heatLayer(points, {
+      radius:     r,
+      blur:       Math.round(r * 0.6),  // blur = 60% of radius → sharper clusters
+      max:        1.2,                  // matches max weight so full color range is used
+      minOpacity: 0.35,                 // ensures low-density areas still render with visible color
+      gradient:   HEAT_GRADIENT,
+    }).addTo(map);
+  }, [map, earthquakes, pluginReady]);
+
+  // Initial draw + cleanup on unmount / data change
+  useEffect(() => {
+    rebuild();
+    return () => {
+      if (heatRef.current) { map.removeLayer(heatRef.current); heatRef.current = null; }
+    };
+  }, [map, rebuild]);
+
+  // Re-draw on zoom to apply correct radius — panning does not need a redraw
+  useEffect(() => {
+    map.on("zoomend", rebuild);
+    return () => { map.off("zoomend", rebuild); };
+  }, [map, rebuild]);
 
   return null;
 };
@@ -382,17 +501,19 @@ const MapComponent = ({
         <MapTypeSelector onMapTypeChange={handleMapTypeChange} />
       </div>
 
-      {/* Color mode toggle */}
-      <div className="color-toggle-container">
-        <div className="color-mode-switch">
-          <button className={colorOwner === "timeline" ? "active" : ""} onClick={() => onChangeColorOwner("timeline")}>
-            Timeline colors
-          </button>
-          <button className={colorOwner === "magnitude" ? "active" : ""} onClick={() => onChangeColorOwner("magnitude")}>
-            Magnitude colors
-          </button>
+      {/* Color mode toggle — hidden on heatmap (no markers to color) */}
+      {mapType !== "heatmap" && (
+        <div className="color-toggle-container">
+          <div className="color-mode-switch">
+            <button className={colorOwner === "timeline" ? "active" : ""} onClick={() => onChangeColorOwner("timeline")}>
+              Timeline colors
+            </button>
+            <button className={colorOwner === "magnitude" ? "active" : ""} onClick={() => onChangeColorOwner("magnitude")}>
+              Magnitude colors
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Volcano toggle */}
       <div className="volcano-toggle-container">
@@ -426,6 +547,7 @@ const MapComponent = ({
         attributionControl={true}
       >
         <TileLayerManager mapType={mapType} />
+        <MinZoomController mapType={mapType} />
         <ScaleControl position="bottomright" />
         <GridOverlay show={showGrid} isDarkMode={isDarkMode} mapType={mapType} />
         <MapClickHandler onClick={handleMapClick} />
@@ -435,7 +557,9 @@ const MapComponent = ({
           markerIcons={markerIcons}
           selectedEarthquake={selectedEarthquake}
           onMarkerClick={handleMarkerClick}
+          visible={mapType !== "heatmap"}
         />
+        {mapType === "heatmap" && <HeatmapLayer earthquakes={earthquakes} />}
 
         {showVolcanoes &&
           volcanoes.map((volcano, index) => (
