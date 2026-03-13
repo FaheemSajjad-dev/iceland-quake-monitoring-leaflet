@@ -2,8 +2,6 @@
 
 Real-time Iceland earthquake monitoring web application built as part of an MSc thesis at the University of Iceland (Háskóli Íslands).
 
-Live demo: [pluto.cs.hi.is:9001](http://pluto.cs.hi.is:9001)
-
 ---
 
 ## Overview
@@ -18,7 +16,7 @@ This is the **Leaflet clone** of the original Google Maps version — no API key
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18 + Vite, react-leaflet 4, leaflet.heat, d3-contour |
+| Frontend | React 18 + Vite, react-leaflet 4, leaflet.heat |
 | Map tiles | OpenStreetMap · Esri World Imagery · CartoDB Dark Matter · CartoDB Voyager |
 | Backend | Python 3, Flask, SQLAlchemy, APScheduler |
 | Database | SQLite (WAL mode) |
@@ -66,27 +64,21 @@ The **Heatmap** is the 4th map type, designed for density analysis rather than i
 | Component | Detail |
 |---|---|
 | Base tile | CartoDB Voyager (no-labels variant) |
-| Heat overlay | `leaflet.heat` — magnitude-weighted density |
+| Heat overlay | `leaflet.heat` — count-based density with small magnitude boost |
 | Labels tile | CartoDB Voyager (labels-only) in a Leaflet `Pane` at z-index 650, rendered above the heat |
-| Contour outlines | `d3-contour` kernel density estimation on a 200 × 120 grid |
 
-**Heatmap weight:** each earthquake contributes `magnitude` units of heat — stronger events show more prominently.
+**Heatmap weight:** every earthquake counts equally (weight 1.0); events M 4–5 get a small boost (1.1) and M 5+ get 1.2 — density drives the visualization, not magnitude alone.
 
-**Gradient:** blue → cyan → green → yellow → orange → red.
+**Gradient:** ColorBrewer-style ramp — blue → cyan → pale yellow → bright yellow → orange → red.
 
-**Contour outline behaviour (dynamic):**
-- 4 levels at the 60th / 75th / 88th / 95th percentiles of non-zero grid values
-- Colours: `#4488ff` → `#00ddaa` → `#ffdd00` → `#ff5500` with increasing line weight
-- Zoom-responsive smoothing: `σ = max(3, round(40 / 2^(zoom−4)))` — coarser at low zoom, finer at high zoom
-- Viewport-aware: grid bounds track the current map view (`map.getBounds()`)
-- Recomputes on every `zoomend` and `moveend` event
+**Zoom-responsive radius:** pixel radius grows with zoom level so clusters remain visible when inspecting detail.
 
 **Behaviour differences from other layers:**
 - Earthquake markers are hidden (removed via `L.layerGroup`, O(1))
 - Timeline / Magnitude colour toggle is not shown
 - Minimum zoom level is **5** (other layers: 6)
 
-**Dependencies added for this layer:** `leaflet.heat`, `d3-contour`, `d3-array`
+**Dependency:** `leaflet.heat`
 
 > `leaflet.heat` requires `window.L` to be set before it is imported. It is loaded dynamically inside a `useEffect` after `window.L = L` to avoid a hoisting issue.
 
