@@ -175,14 +175,7 @@ def match_and_merge(start_utc, end_utc, min_mag=2.7):
 
         db.session.commit()
 
-        # Count by status for clear terminal output
-        n_matched = sum(1 for r in db.session.query(EarthquakeMerged).filter_by(status='matched').all())
-        n_vonly   = sum(1 for r in db.session.query(EarthquakeMerged).filter_by(status='v_only').all())
-        n_sonly   = sum(1 for r in db.session.query(EarthquakeMerged).filter_by(status='s_only').all())
-        print(f"Reconcile complete: {inserted} total rows")
-        print(f"  matched : {n_matched}  (V+S confirmed, S location+depth used)")
-        print(f"  v_only  : {n_vonly}  (MPGV only, no S match found)")
-        print(f"  s_only  : {n_sonly}  (Skjalftalisa only, no V match found)")
+        print(f"Merged rows written: {inserted}")
 
 if __name__ == "__main__":
     end = datetime.now(timezone.utc).replace(microsecond=0)
