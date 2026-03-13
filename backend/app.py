@@ -171,9 +171,14 @@ def scheduled_scrape() -> None:
     with app.app_context():
         # avoid circular imports
         sys.path.append(CURRENT_FILE_PATH)
-        from scrape import scrape_all_earthquake_data
-        from reconcile import match_and_merge
-        from skjalftalisa_client import fetch_last_n_days, store_skjalftalisa_rows
+        import importlib
+        import scrape as _scrape; importlib.reload(_scrape)
+        import reconcile as _reconcile; importlib.reload(_reconcile)
+        import skjalftalisa_client as _sk; importlib.reload(_sk)
+        scrape_all_earthquake_data = _scrape.scrape_all_earthquake_data
+        match_and_merge = _reconcile.match_and_merge
+        fetch_last_n_days = _sk.fetch_last_n_days
+        store_skjalftalisa_rows = _sk.store_skjalftalisa_rows
 
         # Step 1: scrape MPGV (already filtered at Mw >= 2.7 in scrape.py)
         scrape_all_earthquake_data()

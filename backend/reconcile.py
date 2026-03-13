@@ -5,9 +5,9 @@ from app import app, db, Earthquake, EarthquakeMerged, EarthquakeSRaw  # Earthqu
 # If your MPGV model class is named differently, import that instead.
 
 DIST_LIMIT_KM = 10.0
-DM_LIMIT = 2.0
+DM_LIMIT = 3.0
 
-DEPTH_POLICY = 'v'         # current default = MPGV depth
+DEPTH_POLICY = 's'         # use Skjálftalísa depth when matched
 DEPTH_AVG_THR_KM = 5.0     # if using 'avg_if_close', average when |V-S| < 5 km
 
 def haversine_km(lat1, lon1, lat2, lon2):
@@ -51,6 +51,7 @@ def match_and_merge(start_utc, end_utc, min_mag=2.7):
 
         # 4) Match each v to s by your rules
         inserted = 0
+        matched_s_ids = set()  # track which S events were consumed by a match
         for v in v_rows:
             # try ±2 seconds around v.date_time (enforces |Δt| ≤ 2s)
             vt = v.date_time  # 'YYYY-MM-DD HH:MM:SS'
@@ -92,8 +93,9 @@ def match_and_merge(start_utc, end_utc, min_mag=2.7):
                 inserted += 1
 
             elif len(candidates) == 1:
-                # exactly one → accept (use S location but depth according to policy)
+                # exactly one → accept (use S location and depth)
                 dist, dt_abs, dm, s_best = candidates[0]
+                matched_s_ids.add(s_best.event_id)
 
                 # ----- DEPTH POLICY -----
                 # 'v' = MPGV depth
@@ -121,6 +123,7 @@ def match_and_merge(start_utc, end_utc, min_mag=2.7):
                     depth=depth_value,
                     mw_mean=v.mw_mean,
                     status="matched",
+                    v_src_key=f"{v.date_time}_{v.latitude}_{v.longitude}",
                     s_event_id=s_best.event_id,
                     match_dt_sec=dt_abs,
                     match_dist_km=dist,
@@ -149,8 +152,37 @@ def match_and_merge(start_utc, end_utc, min_mag=2.7):
                 inserted += 1
 
 
+        # 5) Insert s_only: S events that were never matched to any V event
+        for s in s_rows:
+            if s.event_id in matched_s_ids:
+                continue
+            if s.magnitude is not None and s.magnitude < min_mag:
+                continue
+            m = EarthquakeMerged(
+                date_time=s.date_time,
+                latitude=s.latitude,
+                longitude=s.longitude,
+                depth=s.depth,
+                mw_mean=s.magnitude or 0.0,
+                status="s_only",
+                s_event_id=s.event_id,
+                match_dt_sec=None,
+                match_dist_km=None,
+                match_dm=None
+            )
+            db.session.add(m)
+            inserted += 1
+
         db.session.commit()
-        print(f"Merged rows written: {inserted}")
+
+        # Count by status for clear terminal output
+        n_matched = sum(1 for r in db.session.query(EarthquakeMerged).filter_by(status='matched').all())
+        n_vonly   = sum(1 for r in db.session.query(EarthquakeMerged).filter_by(status='v_only').all())
+        n_sonly   = sum(1 for r in db.session.query(EarthquakeMerged).filter_by(status='s_only').all())
+        print(f"Reconcile complete: {inserted} total rows")
+        print(f"  matched : {n_matched}  (V+S confirmed, S location+depth used)")
+        print(f"  v_only  : {n_vonly}  (MPGV only, no S match found)")
+        print(f"  s_only  : {n_sonly}  (Skjalftalisa only, no V match found)")
 
 if __name__ == "__main__":
     end = datetime.now(timezone.utc).replace(microsecond=0)

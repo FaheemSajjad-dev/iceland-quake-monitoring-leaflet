@@ -236,7 +236,7 @@ def backfill_skjalftalisa_since_2020(size_min: float = 2.0):
         rows = fetch_skjalftalisa(cur_start, cur_end, size_min=size_min)
         store_skjalftalisa_rows(rows)
         total += len(rows)
-        print(f"Stored {len(rows)} rows for {cur_start:%Y-%m-%d} → {cur_end:%Y-%m-%d}")
+        print(f"Stored {len(rows)} rows for {cur_start:%Y-%m-%d} to {cur_end:%Y-%m-%d}")
         cur_start = cur_end + timedelta(seconds=1)
 
     print(f"Backfill complete. Total fetched: {total}")
