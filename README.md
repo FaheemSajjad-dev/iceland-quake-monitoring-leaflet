@@ -162,4 +162,4 @@ npm test
 - Kristján Jónasson
 - Esa Olavi Hyytia
 
-University of Iceland · © 2025
+University of Iceland · © 2025–2026
