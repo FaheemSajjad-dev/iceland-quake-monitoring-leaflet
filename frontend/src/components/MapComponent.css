@@ -1,6 +1,11 @@
-/* Smooth tile fade-in on load */
+/* Neutral fallback colour shown in blank tile areas during zoom/load transitions */
+.leaflet-container {
+  background: #d4d0cb; /* approximate OSM/CartoDB base grey — less jarring than white during zoom */
+}
+
+/* Smooth tile fade-in on load — prevents tiles from popping in abruptly */
 .leaflet-tile {
-  transition: opacity 0.2s ease-in;
+  transition: opacity 0.15s linear;
 }
 
 /* Map Type Selector */

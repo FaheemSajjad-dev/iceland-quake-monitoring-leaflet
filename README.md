@@ -56,6 +56,7 @@ When a unique match is found, the Skjálftalísa location and depth replace the 
 - **Data export** — download the full merged catalogue as CSV
 - **Four map layers:** roadmap, satellite, dark mode, and heatmap (see below)
 - Scale control and coordinate grid overlay
+- Smooth zoom with half-step snapping (`zoomSnap=0.5`, `zoomDelta=0.5`) and pre-buffered tiles (`keepBuffer=4`)
 
 ### Heatmap Layer
 

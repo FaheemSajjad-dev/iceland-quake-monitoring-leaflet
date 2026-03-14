@@ -60,17 +60,28 @@ const TILE_LAYERS = {
     url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19,
+    maxNativeZoom: 19, // OSM tiles exist up to z19
   },
   satellite: {
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     attribution: "Tiles &copy; Esri",
     maxZoom: 19,
+    maxNativeZoom: 17, // Esri World Imagery native cap; above 17 Leaflet up-scales existing tiles instead of requesting blank ones
   },
   dark_mode: {
-    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
     attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
     maxZoom: 19,
+    maxNativeZoom: 19, // CartoDB native cap
   },
+};
+
+// Shared tile options applied to every TileLayer — key for zoom smoothness
+const TILE_PROPS = {
+  updateWhenZooming: false, // do not fetch new tiles during CSS zoom animation; scaled copies of existing tiles are shown instead — eliminates blank tile flicker
+  updateWhenIdle:    false, // fetch new tiles immediately after zoom/pan settles, not deferred (better on desktop)
+  keepBuffer:        4,     // pre-load 4 extra tile rows in every direction — greatly reduces blank edges when panning or zooming
+  detectRetina:      false, // do not request 2× tiles (e.g. @2x via {r}); avoids over-requesting and potential blank tiles on retina screens where provider has no hi-res variant
 };
 
 // ─── TileLayer switcher ───────────────────────────────────────────────────────
@@ -80,16 +91,20 @@ const TileLayerManager = ({ mapType }) => {
     return (
       <>
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png"
+          url="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
           maxZoom={19}
+          maxNativeZoom={19}
           zIndex={1}
+          {...TILE_PROPS}
         />
         <Pane name="heatmap-labels" style={{ zIndex: 650 }}>
           <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png"
+            url="https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}.png"
             attribution=""
             maxZoom={19}
+            maxNativeZoom={19}
+            {...TILE_PROPS}
           />
         </Pane>
       </>
@@ -102,6 +117,8 @@ const TileLayerManager = ({ mapType }) => {
       url={layer.url}
       attribution={layer.attribution}
       maxZoom={layer.maxZoom}
+      maxNativeZoom={layer.maxNativeZoom}
+      {...TILE_PROPS}
     />
   );
 };
@@ -112,6 +129,18 @@ const MinZoomController = ({ mapType }) => {
   useEffect(() => {
     map.setMinZoom(mapType === "heatmap" ? 5 : 6);
   }, [map, mapType]);
+  return null;
+};
+
+// ─── invalidateSize after mount ───────────────────────────────────────────────
+// Ensures the map measures its container correctly even if CSS finishes after
+// the initial Leaflet render (can cause a half-grey viewport otherwise).
+const MapReadyHandler = () => {
+  const map = useMap();
+  useEffect(() => {
+    const id = setTimeout(() => map.invalidateSize(), 150);
+    return () => clearTimeout(id);
+  }, [map]);
   return null;
 };
 
@@ -545,13 +574,17 @@ const MapComponent = ({
         style={{ width: "100vw", height: "100vh" }}
         zoomControl={false}
         attributionControl={true}
-        zoomAnimation={true}
-        markerZoomAnimation={true}
-        preferCanvas={true}
-        wheelPxPerZoomLevel={80}
+        zoomAnimation={true}       // enable CSS zoom transition
+        fadeAnimation={true}       // cross-fade tiles on zoom
+        markerZoomAnimation={true} // markers animate with zoom
+        preferCanvas={true}        // render markers on canvas — much faster redraws
+        zoomSnap={0.5}             // snap to 0.5 zoom increments instead of integers — smoother steps
+        zoomDelta={0.5}            // one scroll gesture = 0.5 zoom levels — prevents aggressive jumps
+        wheelPxPerZoomLevel={60}   // default 60px per level; combined with zoomDelta=0.5 this means ~120px of scroll per full integer zoom
       >
         <TileLayerManager mapType={mapType} />
         <MinZoomController mapType={mapType} />
+        <MapReadyHandler />
         <ScaleControl position="bottomright" />
         <GridOverlay show={showGrid} isDarkMode={isDarkMode} mapType={mapType} />
         <MapClickHandler onClick={handleMapClick} />
