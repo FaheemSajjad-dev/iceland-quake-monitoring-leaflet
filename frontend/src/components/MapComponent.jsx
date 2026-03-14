@@ -545,6 +545,10 @@ const MapComponent = ({
         style={{ width: "100vw", height: "100vh" }}
         zoomControl={false}
         attributionControl={true}
+        zoomAnimation={true}
+        markerZoomAnimation={true}
+        preferCanvas={true}
+        wheelPxPerZoomLevel={80}
       >
         <TileLayerManager mapType={mapType} />
         <MinZoomController mapType={mapType} />
