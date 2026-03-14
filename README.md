@@ -63,9 +63,9 @@ The **Heatmap** is the 4th map type, designed for density analysis rather than i
 
 | Component | Detail |
 |---|---|
-| Base tile | CartoDB Voyager (no-labels variant) |
+| Base tile | CartoDB Dark Matter (no-labels variant) |
 | Heat overlay | `leaflet.heat` — count-based density with small magnitude boost |
-| Labels tile | CartoDB Voyager (labels-only) in a Leaflet `Pane` at z-index 650, rendered above the heat |
+| Labels tile | CartoDB Dark Matter (labels-only) in a Leaflet `Pane` at z-index 650, rendered above the heat |
 
 **Heatmap weight:** every earthquake counts equally (weight 1.0); events M 4–5 get a small boost (1.1) and M 5+ get 1.2 — density drives the visualization, not magnitude alone.
 

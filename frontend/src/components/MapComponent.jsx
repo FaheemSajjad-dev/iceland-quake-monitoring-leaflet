@@ -80,14 +80,14 @@ const TileLayerManager = ({ mapType }) => {
     return (
       <>
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png"
+          url="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png"
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
           maxZoom={19}
           zIndex={1}
         />
         <Pane name="heatmap-labels" style={{ zIndex: 650 }}>
           <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png"
+            url="https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png"
             attribution=""
             maxZoom={19}
           />
