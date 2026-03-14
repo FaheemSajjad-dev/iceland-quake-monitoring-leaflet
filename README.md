@@ -17,7 +17,7 @@ This is the **Leaflet clone** of the original Google Maps version — no API key
 | Layer | Technology |
 |---|---|
 | Frontend | React 18 + Vite, react-leaflet 4, leaflet.heat |
-| Map tiles | OpenStreetMap · Esri World Imagery · CartoDB Dark Matter · CartoDB Voyager |
+| Map tiles | OpenStreetMap · Esri World Imagery · CartoDB Dark Matter |
 | Backend | Python 3, Flask, SQLAlchemy, APScheduler |
 | Database | SQLite (WAL mode) |
 | Tests | pytest (backend) · Vitest + Testing Library (frontend) |
@@ -77,7 +77,7 @@ The **Heatmap** is the 4th map type, designed for density analysis rather than i
 **Behaviour differences from other layers:**
 - Earthquake markers are hidden (removed via `L.layerGroup`, O(1))
 - Timeline / Magnitude colour toggle is not shown
-- Minimum zoom level is **5** (other layers: 6)
+- Minimum zoom level is **5.5** (same as all other layers)
 
 **Dependency:** `leaflet.heat`
 

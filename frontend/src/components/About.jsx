@@ -114,19 +114,11 @@ const About = ({ onClose }) => {
               Key features include an interactive <strong>timeline color mode</strong> that
               displays earthquakes by month and a <strong>magnitude color mode</strong> that
               dynamically shades markers according to their seismic strength. Users can
-              easily switch between these color schemes using dedicated toggle buttons. The
-              system also integrates <strong>ShakeMap data</strong> for visualizing ground
-              motion intensity, and <strong>volcano overlays</strong> featuring 33 Icelandic volcanoes with
-              their current status and detailed information retrieved from the
-              <strong> EPOS API</strong>. Explore all features live on the map:
-              <br />
-              <a
-                href="http://pluto.cs.hi.is:9001"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Iceland MPGV Earthquake Map
-              </a>
+              switch between four map layers: roadmap, satellite, dark mode, and a{" "}
+              <strong>heatmap layer</strong> for density analysis. The system also integrates{" "}
+              <strong>ShakeMap data</strong> for visualizing ground motion intensity, and{" "}
+              <strong>volcano overlays</strong> featuring 33 Icelandic volcanoes with their
+              current status and detailed information retrieved from the <strong>EPOS API</strong>.
             </p>
 
           </section>
