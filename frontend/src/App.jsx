@@ -111,7 +111,7 @@ const App = () => {
         });
     }, []);
 
-    const handleMapTypeChange = useCallback(type => setIsDarkMode(type === "dark_mode"), []);
+    const handleMapTypeChange = useCallback(type => setIsDarkMode(type === "dark_mode" || type === "heatmap"), []);
     const toggleVolcanoes = useCallback(() => setShowVolcanoes(v => !v), []);
     const handleMagnitudeFilterChange = useCallback(v => setMagnitudeFilter(v), []);
     const emptyVolcanoes = useMemo(() => [], []);

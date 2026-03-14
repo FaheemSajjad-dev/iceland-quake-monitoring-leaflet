@@ -125,7 +125,7 @@ const MapClickHandler = ({ onClick }) => {
 const GridOverlay = ({ show, isDarkMode, mapType }) => {
   const map = useMap();
   const gridRef = useRef([]);
-  const darkLike = isDarkMode || mapType === "satellite" || mapType === "dark_mode";
+  const darkLike = isDarkMode || mapType === "satellite" || mapType === "dark_mode" || mapType === "heatmap";
 
   const createGrid = useCallback(() => {
     gridRef.current.forEach((o) => map.removeLayer(o));
