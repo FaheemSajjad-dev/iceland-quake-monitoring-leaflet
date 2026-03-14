@@ -127,7 +127,7 @@ const TileLayerManager = ({ mapType }) => {
 const MinZoomController = ({ mapType }) => {
   const map = useMap();
   useEffect(() => {
-    map.setMinZoom(mapType === "heatmap" ? 5 : 6);
+    map.setMinZoom(5.5);
   }, [map, mapType]);
   return null;
 };
@@ -570,7 +570,7 @@ const MapComponent = ({
       <MapContainer
         center={CENTER}
         zoom={6}
-        minZoom={6}
+        minZoom={5.5}
         style={{ width: "100vw", height: "100vh" }}
         zoomControl={false}
         attributionControl={true}
