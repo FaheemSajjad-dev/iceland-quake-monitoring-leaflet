@@ -3,6 +3,7 @@
   background: #d4d0cb; /* approximate OSM/CartoDB base grey — less jarring than white during zoom */
 }
 
+
 /* Smooth tile fade-in on load — prevents tiles from popping in abruptly */
 .leaflet-tile {
   transition: opacity 0.15s linear;
@@ -97,73 +98,6 @@
   background-color: #E64A19;
 }
 
-.earthquake-info.showing-depth {
-  background: linear-gradient(to bottom, rgba(255,255,255,0.8), rgba(240,240,240,0.9));
-  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-  border-left: 4px solid #d43131;
-  transition: all 0.3s ease;
-}
-
-.depth-visualization-info {
-  margin-top: 10px;
-  border-top: 1px dashed #ccc;
-  padding-top: 8px;
-}
-
-.pulsing-text {
-  display: flex;
-  align-items: center;
-  animation: pulse-text 1.5s infinite;
-  color: #d43131;
-  font-weight: bold;
-}
-
-.pulse-icon {
-  display: inline-block;
-  margin-right: 5px;
-  animation: pulse-icon 1.5s infinite;
-  font-size: 18px;
-}
-
-@keyframes pulse-text {
-  0% { opacity: 0.6; }
-  50% { opacity: 1; }
-  100% { opacity: 0.6; }
-}
-
-@keyframes pulse-icon {
-  0% { transform: scale(0.9); opacity: 0.7; }
-  50% { transform: scale(1.1); opacity: 1; }
-  100% { transform: scale(0.9); opacity: 0.7; }
-}
-
-/* Cross-section view */
-.cross-section-container {
-  position: absolute;
-  bottom: 32%;
-  right: 10%;
-  width: 320px;
-  height: 240px;
-  background: linear-gradient(to bottom, #36648B, #254156);
-  border-radius: 8px;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3), 0 3px 6px rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  overflow: hidden;
-  z-index: 100;
-  animation: crossSectionAppear 0.3s ease-out forwards;
-}
-
-/* Animation for the cross-section container when it appears */
-@keyframes crossSectionAppear {
-  0% {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
 /* Volcano info */
 .volcano-info {
@@ -219,14 +153,6 @@
   background-color: #E64A19;
 }
 
-/* Grid Functionality */
-.grid-toggle-container {
-  position: absolute;
-  bottom: 5px;
-  left: 10px;
-  z-index: 1000;
-}
-
 /* Color-by-time toggle */
 .color-toggle-container {
   position: absolute;
@@ -265,20 +191,6 @@
   gap: 11px;
 }
 
-.grid-toggle .slider.round {
-  background-color: #ccc;
-}
-
-.grid-toggle input:checked + .slider {
-  background-color: #2196F3; /* Blue color for grid toggle */
-}
-
-.grid-toggle input:focus + .slider {
-  box-shadow: 0 0 1px #2196F3;
-}
-
-/*---------------------*/
-
 /* ——— Always use dark text inside the light info cards ——— */
 .earthquake-info,
 .earthquake-info p,
@@ -287,11 +199,6 @@
 .earthquake-info .eq-time {
   color: #111 !important;      /* readable on the light card */
   text-shadow: none !important; /* prevent any inherited shadows */
-}
-
-/* keep the pulsing depth line red if shown (desktop only) */
-.earthquake-info .pulsing-text {
-  color: #d43131 !important;
 }
 
 /* Volcano card text colors */

@@ -114,6 +114,7 @@ const App = () => {
     }, []);
     const toggleVolcanoes = useCallback(() => setShowVolcanoes(v => !v), []);
     const handleMagnitudeFilterChange = useCallback(v => setMagnitudeFilter(v), []);
+    // Stable empty array so MapComponent doesn't re-render when volcanoes are hidden
     const emptyVolcanoes = useMemo(() => [], []);
     return (
         <div className="app-container">

@@ -411,6 +411,15 @@ const HeatmapLayer = ({ earthquakes }) => {
       minOpacity: 0.25,                 // lower floor → sparse scatter stays subtle
       gradient:   HEAT_GRADIENT,
     }).addTo(map);
+
+    // The heat canvas is treated as an image by the browser, so right-click
+    // shows "Save image as" instead of the normal page menu.  Disabling
+    // pointer-events lets clicks fall through to the map container div,
+    // which shows the standard context menu.  Pan/zoom is unaffected
+    // because Leaflet listens on the container, not on overlay canvases.
+    if (heatRef.current._canvas) {
+      heatRef.current._canvas.style.pointerEvents = "none";
+    }
   }, [map, earthquakes, pluginReady]);
 
   useEffect(() => {
@@ -571,9 +580,9 @@ const MapComponent = ({
         style={{ width: "100vw", height: "100vh" }}
         zoomControl={false}
         attributionControl={true}
-        zoomAnimation={true}       // enable CSS zoom transition
-        fadeAnimation={true}       // cross-fade tiles on zoom
-        markerZoomAnimation={true} // markers animate with zoom
+        zoomAnimation={true}
+        fadeAnimation={true}
+        markerZoomAnimation={true}
         preferCanvas={true}        // render markers on canvas — much faster redraws
         zoomSnap={0.5}             // snap to 0.5 zoom increments instead of integers — smoother steps
         zoomDelta={0.5}            // one scroll gesture = 0.5 zoom levels — prevents aggressive jumps

@@ -1,3 +1,14 @@
+"""
+Merge MPGV (Earthquake) and Skjálftalísa (EarthquakeSRaw) events into EarthquakeMerged.
+
+Matching rules (all three must pass):
+  |Δt|    ≤ 2 s           (±2 second time bucket search)
+  dist     < DIST_LIMIT_KM (haversine surface distance)
+  |ΔMw|   < DM_LIMIT       (magnitude sanity check)
+
+When exactly one candidate matches: 'matched' — S lat/lon/depth used, V time/Mw.
+When zero or ≥2 candidates match: 'v_only' — all fields from MPGV.
+"""
 from datetime import datetime, timedelta, timezone
 from math import radians, sin, cos, asin, sqrt
 
@@ -10,6 +21,7 @@ DEPTH_POLICY = 's'         # use Skjálftalísa depth when matched
 DEPTH_AVG_THR_KM = 5.0     # if using 'avg_if_close', average when |V-S| < 5 km
 
 def haversine_km(lat1, lon1, lat2, lon2):
+    """Return great-circle distance in km between two WGS-84 points."""
     R = 6371.0
     p1, p2 = radians(lat1), radians(lat2)
     dphi  = radians(lat2 - lat1)

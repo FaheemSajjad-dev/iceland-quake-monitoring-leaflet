@@ -215,6 +215,8 @@ def start_background_services() -> None:
 
 @app.before_request
 def ensure_background_services() -> None:
+    # In debug mode Flask spawns a reloader process and a worker process; WERKZEUG_RUN_MAIN
+    # is only set in the worker, so we start the scheduler exactly once (not in the reloader).
     if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         start_background_services()
 
@@ -377,7 +379,7 @@ def health():
 
 # --- Simple EPOS shakemap lookup for one event -------------------------------
 def _km_distance(lat1, lon1, lat2, lon2):
-    # quick haversine (km)
+    # Haversine distance (km) — local copy so this module has no import dependency on reconcile.py
     R = 6371.0
     p1, p2 = math.radians(lat1), math.radians(lat2)
     dlat = p2 - p1

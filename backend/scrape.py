@@ -77,6 +77,7 @@ def scrape_all_earthquake_data():
         _scrape_and_save_with_sqlite()
 
 def _scrape_and_save_with_flask():
+    """Scrape all available years/months from MPGV and upsert via SQLAlchemy."""
     from app import db, Earthquake
 
     response = requests.get(BASE_URL, timeout=20)
@@ -107,6 +108,7 @@ def _scrape_and_save_with_flask():
     print(f"{new_entries} new earthquake records added (Flask).")
 
 def _scrape_and_save_with_sqlite():
+    """Standalone fallback: scrape most recent year + 2 months directly via sqlite3 (no Flask)."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
