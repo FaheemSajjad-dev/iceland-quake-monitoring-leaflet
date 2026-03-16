@@ -193,13 +193,20 @@ def store_skjalftalisa_rows(rows):
 
             rec = EarthquakeSRaw.query.filter_by(event_id=ev_id).first()
             if rec:
-                # Update fields if anything changed
-                rec.date_time = r["time"]
-                rec.latitude  = r["lat"]
-                rec.longitude = r["long"]
-                rec.depth     = r.get("depth")
-                rec.magnitude = r.get("magnitude")
-                updated += 1
+                changed = (
+                    rec.date_time != r["time"] or
+                    rec.latitude  != r["lat"]  or
+                    rec.longitude != r["long"] or
+                    rec.depth     != r.get("depth") or
+                    rec.magnitude != r.get("magnitude")
+                )
+                if changed:
+                    rec.date_time = r["time"]
+                    rec.latitude  = r["lat"]
+                    rec.longitude = r["long"]
+                    rec.depth     = r.get("depth")
+                    rec.magnitude = r.get("magnitude")
+                    updated += 1
             else:
                 db.session.add(EarthquakeSRaw(
                     event_id = ev_id,
@@ -213,7 +220,8 @@ def store_skjalftalisa_rows(rows):
 
         db.session.commit()
 
-    print(f"Inserted {inserted} | Updated {updated} Skjálftalísa rows.")
+    if inserted > 0 or updated > 0:
+        print(f"Inserted {inserted} | Updated {updated} Skjálftalísa rows.")
 
 
 def backfill_skjalftalisa_since_2020(size_min: float = 2.0):
