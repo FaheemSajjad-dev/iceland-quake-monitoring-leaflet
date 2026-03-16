@@ -141,6 +141,26 @@ Open [http://localhost:5174](http://localhost:5174).
 
 ---
 
+## Production Deployment
+
+1. **Backend** — disable debug mode and use a production WSGI server:
+   ```bash
+   # In backend/app.py, line 477: change debug=True → debug=False
+   # Then run with gunicorn (Linux/macOS) instead of the Flask dev server:
+   gunicorn -b 0.0.0.0:5001 app:app --chdir backend
+   ```
+
+2. **Frontend** — build static assets and serve them:
+   ```bash
+   cd frontend
+   npm run build        # outputs to frontend/dist/
+   ```
+   Serve the `dist/` folder with nginx, Apache, or any static file server. In production the frontend expects the API on the same origin, so configure a reverse proxy to forward `/earthquakes`, `/volcanoes`, `/shakemap*`, and `/scrape*` to the gunicorn backend.
+
+3. **Tile providers** — see the [Map Tile Licensing](#map-tile-licensing--important-for-production-deployment) section below for required licence changes before public deployment.
+
+---
+
 ## Running Tests
 
 **Backend** (37 tests):
