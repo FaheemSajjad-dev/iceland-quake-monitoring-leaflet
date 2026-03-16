@@ -1,1 +1,12 @@
 Update screenshots and their captions in documentation
+
+deployment of webapp on local server and a proper host 
+
+after deployment stress test through students in department
+
+rate limiting (not applied yet) -------------------------- 
+                                                            |
+                                                            |
+                                                            |
+map layers discussion with MET office --------------------
+
