@@ -334,3 +334,41 @@
 .color-mode-switch button:hover {
   background: rgba(0,0,0,0.1);
 }
+
+/* Heatmap density legend — sits just above the Leaflet scale control (bottom-right) */
+.heatmap-legend {
+  position: absolute;
+  bottom: 65px;
+  right: 10px;
+  z-index: 1000;
+  background: rgba(18, 18, 28, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  padding: 8px 10px 6px;
+  min-width: 150px;
+  backdrop-filter: blur(4px);
+}
+
+.heatmap-legend-title {
+  color: #d0d0d0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+.heatmap-legend-bar {
+  height: 10px;
+  border-radius: 4px;
+  background: linear-gradient(to right, #253494, #2c7fb8, #41b6c4, #fdae61, #f46d43, #d73027);
+  margin-bottom: 4px;
+}
+
+.heatmap-legend-labels {
+  display: flex;
+  justify-content: space-between;
+  color: #999;
+  font-size: 10px;
+}

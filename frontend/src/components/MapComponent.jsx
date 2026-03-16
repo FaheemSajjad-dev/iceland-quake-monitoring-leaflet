@@ -347,25 +347,27 @@ const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMar
   return null;
 };
 
-// Color ramp: transparent → blue → cyan → yellow → orange → red
+// Color ramp: transparent → dark blue → blue → teal → amber → orange → deep red
+// Equal-weight stops eliminate the wide yellow band; reads cleanly on a dark basemap.
 const HEAT_GRADIENT = {
-  0.00: 'rgba(33,102,172,0)',  // transparent
-  0.15: '#2c7bb6',              // medium blue   (first visible)
-  0.35: '#41b6c4',              // cyan-blue
-  0.55: '#ffffb2',              // pale yellow
-  0.70: '#ffff33',              // bright yellow
-  0.85: '#ff8c00',              // orange
-  1.00: '#e31a1c',              // strong red
+  0.00: 'rgba(0,0,0,0)',
+  0.15: '#253494',   // dark indigo-blue (sparse — first visible)
+  0.30: '#2c7fb8',   // medium blue
+  0.50: '#41b6c4',   // teal
+  0.65: '#fdae61',   // amber
+  0.80: '#f46d43',   // orange
+  1.00: '#d73027',   // deep red (peak density)
 };
 
-// Pixel radius by zoom — grows with zoom so clusters remain visible when inspecting detail
+// Larger radii vs. the old values — Iceland's linear seismic belts (Reykjanes, SISZ, NVZ)
+// need sufficient overlap between adjacent point kernels to read as continuous bands.
 const heatRadius = (z) => {
-  if (z <= 5)  return 10;
-  if (z <= 6)  return 15;
-  if (z <= 7)  return 21;
-  if (z <= 8)  return 29;
-  if (z <= 9)  return 39;
-  return 52;
+  if (z <= 5)  return 15;
+  if (z <= 6)  return 22;
+  if (z <= 7)  return 30;
+  if (z <= 8)  return 38;
+  if (z <= 9)  return 48;
+  return 58;
 };
 
 const HeatmapLayer = ({ earthquakes }) => {
@@ -392,17 +394,18 @@ const HeatmapLayer = ({ earthquakes }) => {
       const lng = parseFloat(q.Longitude);
       const mag = parseFloat(q.Mw_mean);
       if (isNaN(lat) || isNaN(lng) || isNaN(mag)) return null;
-      // Density-first: every quake = 1.0; tiny boost for significant events
-      // Mw <4 → 1.0  |  Mw 4–5 → 1.1  |  Mw 5+ → 1.2
-      const wt = mag >= 5.0 ? 1.2 : mag >= 4.0 ? 1.1 : 1.0;
+      // Density-first weighting: small magnitude bonus so notable events add slight extra
+      // prominence without letting a handful of M5+ events dominate the whole picture.
+      // Mw <4 → 1.0  |  Mw 4–5 → 1.15  |  Mw 5+ → 1.3
+      const wt = mag >= 5.0 ? 1.3 : mag >= 4.0 ? 1.15 : 1.0;
       return [lat, lng, wt];
     }).filter(Boolean);
 
     heatRef.current = L.heatLayer(points, {
       radius:     r,
-      blur:       Math.round(r * 0.6),  // blur = 60% of radius → sharper clusters
-      max:        1.2,                  // matches max weight so full color range is used
-      minOpacity: 0.35,                 // ensures low-density areas still render with visible color
+      blur:       Math.round(r * 0.5),  // 50% of radius — tighter than before, less muddy
+      max:        1.3,                  // matches new max weight so full gradient is used
+      minOpacity: 0.25,                 // lower floor → sparse scatter stays subtle
       gradient:   HEAT_GRADIENT,
     }).addTo(map);
   }, [map, earthquakes, pluginReady]);
@@ -422,6 +425,18 @@ const HeatmapLayer = ({ earthquakes }) => {
 
   return null;
 };
+
+// Overlay legend shown only when heatmap mode is active.
+const HeatmapLegend = () => (
+  <div className="heatmap-legend">
+    <div className="heatmap-legend-title">Earthquake density</div>
+    <div className="heatmap-legend-bar" />
+    <div className="heatmap-legend-labels">
+      <span>Low</span>
+      <span>High</span>
+    </div>
+  </div>
+);
 
 const MapComponent = ({
   earthquakes,
@@ -586,6 +601,8 @@ const MapComponent = ({
             />
           ))}
       </MapContainer>
+
+      {mapType === "heatmap" && <HeatmapLegend />}
 
       {selectedEarthquake && (
         <div className="earthquake-info">
