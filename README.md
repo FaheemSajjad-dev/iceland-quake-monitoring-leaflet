@@ -68,11 +68,13 @@ The **Heatmap** is the 4th map type, designed for density analysis rather than i
 | Heat overlay | `leaflet.heat` — count-based density with small magnitude boost |
 | Labels tile | CartoDB Dark Matter (labels-only) in a Leaflet `Pane` at z-index 650, rendered above the heat |
 
-**Heatmap weight:** every earthquake counts equally (weight 1.0); events M 4–5 get a small boost (1.1) and M 5+ get 1.2 — density drives the visualization, not magnitude alone.
+**Heatmap weight:** every earthquake counts equally (weight 1.0); events M 4–5 get a small boost (1.15) and M 5+ get 1.3 — density drives the visualization, not magnitude alone.
 
-**Gradient:** ColorBrewer-style ramp — blue → cyan → pale yellow → bright yellow → orange → red.
+**Gradient:** Perceptually linear ramp — transparent → dark blue → steel blue → teal → amber → orange → red. Equal-weight stops avoid the oversized yellow band of earlier designs; amber replaces bright yellow for readability on dark basemaps.
 
-**Zoom-responsive radius:** pixel radius grows with zoom level so clusters remain visible when inspecting detail.
+**Zoom-responsive radius:** pixel radius grows with zoom level so clusters remain visible when inspecting detail (z≤5: 15 px, z≤6: 22 px, z≤7: 30 px, z≤8: 38 px, z≤9: 48 px, z>9: 58 px).
+
+**Density legend:** a `Earthquake density` gradient bar (Low → High) is shown in the bottom-right corner when the heatmap layer is active, matching the exact gradient colours used in the heat layer.
 
 **Behaviour differences from other layers:**
 - Earthquake markers are hidden (removed via `L.layerGroup`, O(1))
