@@ -112,12 +112,17 @@ const About = ({ onClose }) => {
             <p>
               Key features include an interactive <strong>timeline color mode</strong> that
               displays earthquakes by month and a <strong>magnitude color mode</strong> that
-              dynamically shades markers according to their seismic strength. Users can
+              dynamically shades markers according to their seismic strength. A{" "}
+              <strong>time window slider</strong> lets users filter events by day, week,
+              month, or year — scroll to zoom the time range, drag to pan it. Users can
               switch between four map layers: roadmap, satellite, dark mode, and a{" "}
-              <strong>heatmap layer</strong> for density analysis. The system also integrates{" "}
-              <strong>ShakeMap data</strong> for visualizing ground motion intensity, and{" "}
-              <strong>volcano overlays</strong> featuring 33 Icelandic volcanoes with their
-              current status and detailed information retrieved from the <strong>EPOS API</strong>.
+              <strong>heatmap layer</strong> for density analysis. A{" "}
+              <strong>lat/lon grid overlay</strong> can be toggled on to display
+              auto-density coordinate lines that adapt to the current zoom level.
+              The system also integrates <strong>ShakeMap data</strong> for visualizing
+              ground motion intensity, and <strong>volcano overlays</strong> featuring
+              33 Icelandic volcanoes with their current status and detailed information
+              retrieved from the <strong>EPOS API</strong>.
             </p>
 
           </section>
