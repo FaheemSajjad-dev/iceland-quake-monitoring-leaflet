@@ -339,7 +339,9 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline', vertical = 
 					: [0, Math.floor((days - 1) / 2), days - 1];
 
 			for (let i = 0; i < days; i++) {
-				const pos = (i / Math.max(1, days - 1)) * 100;
+				// Left edge of this day's box; labels are centred inside the box
+				const dividerPos = (i / days) * 100;
+				const labelPos   = ((i + 0.5) / days) * 100;
 
 				const isYearBoundary =
 					dividerDate.getMonth() === 0 && dividerDate.getDate() === 1;
@@ -352,7 +354,7 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline', vertical = 
 								? "divider divider-year"
 								: "divider divider-day"
 						}
-						style={{ left: `${pos}%`, height: "100%", top: 0 }}
+						style={{ left: `${dividerPos}%`, height: "100%", top: 0 }}
 					/>
 				);
 
@@ -361,21 +363,21 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline', vertical = 
 						<div
 							key={`day-label-${dividerDate.toISOString()}`}
 							className="day-label"
-							style={{ left: `${pos}%` }}
+							style={{ left: `${labelPos}%` }}
 						>
 							{dividerDate.getDate()}
 						</div>
 					);
 				}
 
-				// Year label directly under 1 January showing prev/next year
+				// Year label at the Jan 1 divider line showing prev/next year
 				if (isYearBoundary) {
 					const yr = dividerDate.getFullYear();
 					labels.push(
 						<div
 							key={`year-label-${yr}`}
 							className="year-label"
-							style={{ left: `${pos}%` }}
+							style={{ left: `${dividerPos}%` }}
 						>
 							{String(yr - 1).slice(-2)}/{String(yr).slice(-2)}
 						</div>
@@ -384,6 +386,15 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline', vertical = 
 
 				dividerDate.setDate(dividerDate.getDate() + 1);
 			}
+
+			// Right edge of the last day's box
+			dividers.push(
+				<div
+					key="day-divider-end"
+					className="divider divider-day"
+					style={{ left: "100%", height: "100%", top: 0 }}
+				/>
+			);
 
 			return { dividers, labels };
 		}

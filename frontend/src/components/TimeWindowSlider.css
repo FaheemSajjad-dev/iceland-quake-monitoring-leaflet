@@ -72,13 +72,13 @@
   top: 0;
 }
 
-/* Year divider: subtle 1px line */
+/* Year divider: bold 2px line */
 .divider.divider-year {
   background-color: #000000;
-  width: 1px;
+  width: 2px;
   height: 100%;
   top: 0;
-  opacity: 0.5;
+  opacity: 1;
 }
 
 .year-labels {
