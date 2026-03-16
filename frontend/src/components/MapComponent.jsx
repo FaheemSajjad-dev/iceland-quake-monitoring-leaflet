@@ -57,7 +57,7 @@ const TILE_LAYERS = {
     url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19,
-    maxNativeZoom: 19, // OSM tiles exist up to z19
+    maxNativeZoom: 19,
   },
   satellite: {
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
@@ -69,7 +69,7 @@ const TILE_LAYERS = {
     url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
     attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
     maxZoom: 19,
-    maxNativeZoom: 19, // CartoDB native cap
+    maxNativeZoom: 19,
   },
 };
 
@@ -291,14 +291,12 @@ const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMar
   selectedEqRef.current = selectedEarthquake;
   markerIconsRef.current = markerIcons;
 
-  // Create LayerGroup once — single removeLayer() call hides every marker instantly
   useEffect(() => {
     const lg = L.layerGroup().addTo(map);
     layerGroupRef.current = lg;
     return () => { map.removeLayer(lg); layerGroupRef.current = null; };
   }, [map]);
 
-  // Toggle entire layer group on/off — O(1), no per-marker loop
   useEffect(() => {
     const lg = layerGroupRef.current;
     if (!lg) return;
@@ -335,7 +333,6 @@ const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMar
     });
   }, [map, earthquakes, markerIcons, onMarkerClick]);
 
-  // On selection change: update only the two affected markers (O(1) instead of O(n))
   useEffect(() => {
     const prev = prevSelectedRef.current;
     prevSelectedRef.current = selectedEarthquake;
@@ -367,8 +364,6 @@ const HEAT_GRADIENT = {
   1.00: '#d73027',   // deep red (peak density)
 };
 
-// Larger radii vs. the old values — Iceland's linear seismic belts (Reykjanes, SISZ, NVZ)
-// need sufficient overlap between adjacent point kernels to read as continuous bands.
 const heatRadius = (z) => {
   if (z <= 5)  return 15;
   if (z <= 6)  return 22;
@@ -434,7 +429,6 @@ const HeatmapLayer = ({ earthquakes }) => {
   return null;
 };
 
-// Overlay legend shown only when heatmap mode is active.
 const HeatmapLegend = () => (
   <div className="heatmap-legend">
     <div className="heatmap-legend-title">Earthquake density</div>
@@ -509,6 +503,10 @@ const MapComponent = ({
   }, [selectedEarthquake]);
 
   const handleMapTypeChange = useCallback((type) => {
+    if (type === "heatmap") {
+      setSelectedEarthquake(null);
+      setSelectedVolcano(null);
+    }
     setMapType(type);
     onMapTypeChange(type);
   }, [onMapTypeChange]);

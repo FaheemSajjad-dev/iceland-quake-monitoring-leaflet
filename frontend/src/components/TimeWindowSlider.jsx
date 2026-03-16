@@ -116,7 +116,6 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline', vertical = 
 				month: "short",
 			})} ${date.getFullYear()}`;
 
-		// Use full day–month–year whenever we are in a view that shows days
 		const useDayPrecision = range.isDayView || range.isWeekMode;
 		const f = useDayPrecision ? fmtDay : fmtMonth;
 
@@ -293,7 +292,6 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline', vertical = 
     return () => slider.removeEventListener("wheel", handler);
   }, []);
 
-  // Touch drag support (mobile)
   const handleTouchStart = (e) => {
     if (!trackRef.current) return;
     const t = e.touches[0];

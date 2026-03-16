@@ -110,6 +110,7 @@ const App = () => {
     const handleMapTypeChange = useCallback(type => {
         setIsDarkMode(type === "dark_mode" || type === "heatmap");
         setIsHeatmap(type === "heatmap");
+        if (type === "heatmap") setColorOwner('timeline');
     }, []);
     const toggleVolcanoes = useCallback(() => setShowVolcanoes(v => !v), []);
     const handleMagnitudeFilterChange = useCallback(v => setMagnitudeFilter(v), []);
