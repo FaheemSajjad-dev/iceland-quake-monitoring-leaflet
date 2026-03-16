@@ -106,7 +106,11 @@ const App = () => {
         });
     }, []);
 
-    const handleMapTypeChange = useCallback(type => setIsDarkMode(type === "dark_mode" || type === "heatmap"), []);
+    const [isHeatmap, setIsHeatmap] = useState(false);
+    const handleMapTypeChange = useCallback(type => {
+        setIsDarkMode(type === "dark_mode" || type === "heatmap");
+        setIsHeatmap(type === "heatmap");
+    }, []);
     const toggleVolcanoes = useCallback(() => setShowVolcanoes(v => !v), []);
     const handleMagnitudeFilterChange = useCallback(v => setMagnitudeFilter(v), []);
     const emptyVolcanoes = useMemo(() => [], []);
@@ -131,7 +135,7 @@ const App = () => {
                     </h1>
                 </div>
 
-                <TimeWindowSlider onFilterChange={handleFilterChange} colorOwner={colorOwner} />
+                <TimeWindowSlider onFilterChange={handleFilterChange} colorOwner={colorOwner} vertical isHeatmap={isHeatmap} />
 
                 <MapComponent
                     earthquakes={filteredData}

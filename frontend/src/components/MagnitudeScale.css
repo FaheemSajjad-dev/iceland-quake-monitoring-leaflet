@@ -2,7 +2,7 @@
 .magnitude-scale.vertical {
   position: absolute;
   left: auto;
-  right: 12px;
+  right: 20px;
   z-index: 1000;
   bottom: auto;
   top: 42%;

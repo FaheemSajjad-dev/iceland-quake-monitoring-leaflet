@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import './TimeWindowSlider.css';
 
-const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
+const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline', vertical = false, isHeatmap = false }) => {
   const startDate = new Date(2020, 5, 1);
   const currentDate = new Date();
 
@@ -167,7 +167,7 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
     if (!trackRef.current) return;
     
     isDraggingRef.current = true;
-    dragStartXRef.current = e.clientX;
+    dragStartXRef.current = vertical ? e.clientY : e.clientX;
     dragStartOffsetRef.current = viewOffset;
     
     document.addEventListener("mousemove", handleMouseMove);
@@ -181,11 +181,13 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
     if (!isDraggingRef.current || !trackRef.current) return;
     
     const trackWidth = trackRef.current.offsetWidth;
-    const deltaX = e.clientX - dragStartXRef.current;
-    
-    // Moving right scrolls to earlier dates, so delta is negated
+    const delta = (vertical ? e.clientY : e.clientX) - dragStartXRef.current;
+
+    // Horizontal: drag right → earlier dates, so negate delta.
+    // Vertical (rotated -90deg): drag down is visually leftward along the timeline,
+    // so use positive delta to keep drag-down = earlier dates (natural direction).
     let sensitivityFactor = isDayViewMode ? 0.1 : 2.0;
-    const deltaRatio = (-deltaX / trackWidth) * sensitivityFactor;
+    const deltaRatio = (vertical ? delta : -delta) / trackWidth * sensitivityFactor;
     const newOffset = Math.max(0, Math.min(1, dragStartOffsetRef.current + deltaRatio));
     
     setViewOffset(newOffset);
@@ -206,10 +208,9 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
     e.preventDefault();
 
     if (!trackRef.current) {
-      // Fallback: keep old behaviour if track is missing
       const raw = e.deltaY;
       const clamped = Math.max(-60, Math.min(60, raw));
-      const k = zoomLevel < 0.1 ? 0.004 : 0.008;
+      const k = zoomLevel < 0.1 ? 0.004 : 0.006;
       const scale = Math.exp(clamped * k);
       const newZoomLevel = Math.max(0.01, Math.min(1.0, zoomLevel * scale));
       setZoomLevel(newZoomLevel);
@@ -220,12 +221,14 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
     }
 
     const rect = trackRef.current.getBoundingClientRect();
-    const cursorX = e.clientX - rect.left;
-    const cursorRatio = Math.max(0, Math.min(1, cursorX / rect.width || 0)); // 0–1
+    // In vertical mode the slider is rotated -90deg; top = newer, bottom = older
+    const cursorRatio = vertical
+      ? 1 - Math.max(0, Math.min(1, (e.clientY - rect.top) / (rect.height || 1)))
+      : Math.max(0, Math.min(1, (e.clientX - rect.left) / (rect.width || 1)));
 
     const raw = e.deltaY;
     const clamped = Math.max(-60, Math.min(60, raw));
-    const k = zoomLevel < 0.1 ? 0.004 : 0.008; // gentler at high zoom
+    const k = zoomLevel < 0.1 ? 0.004 : 0.006;
     const scale = Math.exp(clamped * k);
 
     const oldZoom = zoomLevel;
@@ -277,27 +280,25 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
     setViewOffset(newOffset);
   };
 
-
-
+  // Stable wheel listener registered once. handleWheelRef.current is updated every render
+  // so the wrapper always calls the latest closure without re-registering the listener.
+  const handleWheelRef = useRef(null);
+  handleWheelRef.current = handleWheel;
 
   useEffect(() => {
     const slider = sliderRef.current;
-    if (slider) {
-      slider.addEventListener("wheel", handleWheel, { passive: false });
-    }
-    return () => {
-      if (slider) {
-        slider.removeEventListener("wheel", handleWheel);
-      }
-    };
-  }, [zoomLevel, viewOffset, isDayViewMode]);
+    if (!slider) return;
+    const handler = (e) => handleWheelRef.current(e);
+    slider.addEventListener("wheel", handler, { passive: false });
+    return () => slider.removeEventListener("wheel", handler);
+  }, []);
 
   // Touch drag support (mobile)
   const handleTouchStart = (e) => {
     if (!trackRef.current) return;
     const t = e.touches[0];
     isDraggingRef.current = true;
-    dragStartXRef.current = t.clientX;
+    dragStartXRef.current = vertical ? t.clientY : t.clientX;
     dragStartOffsetRef.current = viewOffset;
     trackRef.current.classList.add("dragging");
   };
@@ -306,10 +307,10 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
     if (!isDraggingRef.current || !trackRef.current) return;
     const t = e.touches[0];
     const trackWidth = trackRef.current.offsetWidth;
-    const deltaX = t.clientX - dragStartXRef.current;
+    const delta = (vertical ? t.clientY : t.clientX) - dragStartXRef.current;
 
     const sensitivityFactor = isDayViewMode ? 0.1 : 2.0;
-    const deltaRatio = (-deltaX / trackWidth) * sensitivityFactor;
+    const deltaRatio = (vertical ? delta : -delta) / trackWidth * sensitivityFactor;
     const newOffset = Math.max(0, Math.min(1, dragStartOffsetRef.current + deltaRatio));
     setViewOffset(newOffset);
     e.preventDefault(); // stop page scroll while dragging slider
@@ -514,10 +515,10 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
 
 
 
-  const { dividers, labels } = generateDividers();
+  const { dividers, labels } = useMemo(() => generateDividers(), [viewOffset, zoomLevel]);
 
   return (
-    <div className={`time-window-slider-container ${isDayViewMode ? "day-view" : ""}`}>
+    <div className={`time-window-slider-container ${isDayViewMode ? "day-view" : ""} ${vertical ? "vertical" : ""} ${vertical && isHeatmap ? "heatmap-mode" : ""}`}>
       <div className="timeline-slider" ref={sliderRef}>
         <div
           className={`timeline-track ${colorOwner === 'magnitude' ? 'gray' : 'colored'}`}
@@ -539,7 +540,7 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
 
       <div className="selected-date">{formatDateRangeDisplay()}</div>
       <div className="zoom-indicator">
-        {isDayViewMode ? " Day view " : isYearMode ? " Year view " : " Month view "}  
+        {isDayViewMode ? " Day view " : isYearMode ? " Year view " : " Month view "}
         ( scroll to zoom {zoomLevel < 0.5 ? "time window, drag to shift" : "time window, drag to shift "} )
       </div>
     </div>

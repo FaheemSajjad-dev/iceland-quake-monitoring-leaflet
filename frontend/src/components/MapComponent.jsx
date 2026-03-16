@@ -206,10 +206,18 @@ const GridOverlay = ({ show, isDarkMode, mapType }) => {
     const startLng = Math.floor(extW / gridSpacing) * gridSpacing;
     const endLng   = Math.ceil(extE / gridSpacing) * gridSpacing;
 
+    // Safe left margin: 120px clears the map-type button and the vertical time-window slider.
+    // Convert that pixel column back to a geographic longitude so lat labels never
+    // land underneath the left-side UI panel regardless of zoom or pan position.
+    const SAFE_LEFT_PX = 120;
+    const mapHeight = map.getSize().y;
+    const safeLatLabelLng = map.containerPointToLatLng([SAFE_LEFT_PX, mapHeight / 2]).lng;
+    const latLabelLng = (lng) => Math.max(lng, safeLatLabelLng);
+
     for (let lat = startLat; lat <= endLat; lat += gridSpacing) {
       if (lat < -85 || lat > 85) continue;
       addLine([[lat, extW], [lat, extE]], mainColor, 1, 0.8);
-      addLabel(lat, west + (east - west) * 0.02,
+      addLabel(lat, latLabelLng(west + (east - west) * 0.02),
         `${lat.toFixed(decimals)}°${lat > 0 ? "N" : lat < 0 ? "S" : ""}`,
         lblColor, "10px");
     }
@@ -231,7 +239,7 @@ const GridOverlay = ({ show, isDarkMode, mapType }) => {
         if (Math.abs(lat % gridSpacing) < subGridSpacing * 0.1) continue;
         addLine([[lat, extW], [lat, extE]], subColor, 0.5, 0.5);
         if (zoom > 12 && lat % (subGridSpacing * 5) < subGridSpacing * 0.1) {
-          addLabel(lat, west + (east - west) * 0.02,
+          addLabel(lat, latLabelLng(west + (east - west) * 0.02),
             `${lat.toFixed(decimals)}°${lat > 0 ? "N" : lat < 0 ? "S" : ""}`,
             subLblColor, "9px", "400");
         }
@@ -549,9 +557,6 @@ const MapComponent = ({
           </label>
           <span className="toggle-label">Show volcanoes</span>
         </div>
-      </div>
-
-      <div className="grid-toggle-container">
         <div className="volcano-toggle grid-toggle">
           <label className="switch">
             <input type="checkbox" checked={showGrid} onChange={() => setShowGrid((v) => !v)} />

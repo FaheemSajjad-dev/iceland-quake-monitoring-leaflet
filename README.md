@@ -49,14 +49,25 @@ When a unique match is found, the Skjálftalísa location and depth replace the 
 - Interactive map with earthquake markers sized and coloured by magnitude
 - **Timeline colour mode** — shades markers by when the event occurred
 - **Magnitude colour mode** — shades markers by seismic strength
-- **Time window slider** — filter events by day / week / month / year
+- **Time window slider** — filter events by day / week / month / year; scroll to zoom, drag to pan
 - **Magnitude filter** — slider to set a minimum magnitude threshold
 - **Volcano overlay** — 33 Icelandic volcanoes with status and EPOS metadata
 - **ShakeMap links** — info window shows a ShakeMap button for eligible events
 - **Data export** — download the full merged catalogue as CSV
 - **Four map layers:** roadmap, satellite, dark mode, and heatmap (see below)
-- Scale control and coordinate grid overlay
+- **Lat/lon grid overlay** — auto-density grid (0.002°–5° spacing by zoom); labels use a safe-zone calculation to avoid overlapping left-side UI
 - Smooth zoom with half-step snapping (`zoomSnap=0.5`, `zoomDelta=0.5`) and pre-buffered tiles (`keepBuffer=4`)
+
+### UI Layout
+
+All controls are aligned at a consistent 20 px margin from their respective screen edge:
+
+| Edge | Controls |
+|---|---|
+| Left | Map type selector · Timeline slider (vertical) · Colour mode toggle · Volcano + grid toggle row |
+| Right | About button · Magnitude scale · Heatmap legend · Scale bar |
+
+The volcano toggle and lat/lon grid toggle share a single row. Info windows (earthquake and volcano) open at 15% from the left edge.
 
 ### Heatmap Layer
 
@@ -156,6 +167,22 @@ npm test
 | Reconcile: max time diff | 2 seconds |
 | Reconcile: max mag diff | 3.0 |
 | DB location | `backend/data/earthquakes.db` |
+
+---
+
+## Performance Notes
+
+Key optimisations applied to the frontend:
+
+| Component | Technique |
+|---|---|
+| `EarthquakeMarkers` | `L.layerGroup` — single `addTo`/`removeLayer` call hides all markers (O(1)) |
+| `EarthquakeMarkers` | Selection change updates only the two affected markers, not the full list |
+| `markerIcons` | Computed with `useMemo([earthquakes, colorOwner, maxMagnitude])` |
+| `TimeWindowSlider` | Wheel handler registered **once** via a stable `useRef` wrapper; state changes no longer trigger listener re-registration |
+| `TimeWindowSlider` | `generateDividers()` output memoized with `useMemo([viewOffset, zoomLevel])` |
+| `MapComponent` tile loading | `updateWhenZooming=false`, `updateWhenIdle=false`, `keepBuffer=4`, `detectRetina=false` |
+| `HeatmapLayer` | Rebuilt only on data change or `zoomend`; panning does not trigger a redraw |
 
 ---
 

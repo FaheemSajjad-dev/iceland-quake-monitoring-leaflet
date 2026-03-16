@@ -12,7 +12,7 @@
 .map-type-control {
   position: absolute;
   top: 10px;
-  left: 10px;
+  left: 20px;
   z-index: 1000;
 }
 
@@ -66,7 +66,7 @@
 /* Earthquake Info Window */
 .earthquake-info {
   position: absolute;
-  left: 1%;
+  left: 15%;
   top: 30%;
   background-color: rgba(255, 255, 255, 0.6);
   padding: 10px;
@@ -82,7 +82,7 @@
 }
 
 .earthquake-info button {
-  background-color: #d9534f;
+  background-color: #FF5722;
   color: #fff;
   border: none;
   padding: 5px 10px;
@@ -90,6 +90,11 @@
   cursor: pointer;
   font-size: 14px;
   margin-top: 5px;
+  transition: background-color 0.2s;
+}
+
+.earthquake-info button:hover {
+  background-color: #E64A19;
 }
 
 .earthquake-info.showing-depth {
@@ -163,15 +168,14 @@
 /* Volcano info */
 .volcano-info {
   position: absolute;
-  left: 1%;
+  left: 15%;
   top: 30%;
-  background-color: rgba(255, 250, 245, 0.9);
+  background-color: rgba(255, 250, 245, 0.6);
   padding: 12px;
   border-radius: 10px;
   box-shadow: 0px 3px 12px rgba(0,0,0,0.3);
   max-width: 280px;
   z-index: 1000;
-  border-left: 4px solid #FF5722;
   font-family: Arial, sans-serif;
 }
 
@@ -218,16 +222,16 @@
 /* Grid Functionality */
 .grid-toggle-container {
   position: absolute;
-  bottom: 35px;
+  bottom: 5px;
   left: 10px;
   z-index: 1000;
 }
 
-/* New: Color-by-time toggle (above others) */
+/* Color-by-time toggle */
 .color-toggle-container {
   position: absolute;
-  bottom: 120px;  
-  left: 10px;
+  bottom: 77px;
+  left: 20px;
   z-index: 1000;
 }
 
@@ -242,7 +246,6 @@
 /* Color-by-time override: solid Twilight anchor when ON */
 .color-toggle input:checked + .slider { background-color: #6a51a3; }
 
-/* Make sure no opacity sneaks in */
 .switch input:checked + .slider,
 .grid-toggle input:checked + .slider,
 .color-toggle input:checked + .slider {
@@ -250,12 +253,16 @@
   filter: none !important;
 }
 
-/* Add a new class for the volcano toggle container */
+/* Volcano and grid toggle row */
 .volcano-toggle-container {
   position: absolute;
-  bottom: 75px;  /* Changed from 125px - moved it down */
-  left: 10px;
+  bottom: 39px;
+  left: 20px;
   z-index: 1000;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 11px;
 }
 
 .grid-toggle .slider.round {
@@ -301,7 +308,6 @@
 .volcano-info .elevation { color: #775533 !important; }
 .volcano-info .eruption  { color: #D50000 !important; }
 
-/* optional: if you ever render links inside either card */
 .earthquake-info a,
 .volcano-info a { color: #0b57d0 !important; }
 
@@ -316,11 +322,11 @@
 
 .color-mode-switch button {
   flex: 1;
-  padding: 4px 8px;
+  padding: 2px 6px;
   border: none;
   background: none;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   color: #333;
   transition: background 0.2s ease;
@@ -338,8 +344,8 @@
 /* Heatmap density legend — sits just above the Leaflet scale control (bottom-right) */
 .heatmap-legend {
   position: absolute;
-  bottom: 65px;
-  right: 10px;
+  bottom: 82px;
+  right: 20px;
   z-index: 1000;
   background: rgba(18, 18, 28, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -371,4 +377,10 @@
   justify-content: space-between;
   color: #999;
   font-size: 10px;
+}
+
+/* Align scale bar bottom with the volcano/grid toggles (bottom: 39px); right matches left components (20px) */
+.leaflet-bottom.leaflet-right .leaflet-control-scale {
+  margin-bottom: 29px; /* Leaflet adds ~10px default bottom padding → 10 + 29 = 39px */
+  margin-right: 10px;  /* Leaflet's default margin-right is 10px → 10 + 10 = 20px from edge */
 }
