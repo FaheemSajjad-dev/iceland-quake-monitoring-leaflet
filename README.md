@@ -186,6 +186,29 @@ Key optimisations applied to the frontend:
 
 ---
 
+## Map Tile Licensing — Important for Production Deployment
+
+The three tile providers used in development have **usage restrictions** that must be resolved before this application is deployed as a public-facing production service.
+
+| Layer | Provider URL | Development use | Production requirement |
+|---|---|---|---|
+| Roadmap | `tile.openstreetmap.org` | Permitted for low-traffic testing | **Forbidden** for app distribution / heavy use per [OSM tile policy](https://operations.osmfoundation.org/policies/tiles/). Must use a CDN or self-hosted tiles. |
+| Satellite | `server.arcgisonline.com` (Esri) | Free for dev/personal | Requires an **Esri licence** for government / production use |
+| Dark Matter + Heatmap base | `basemaps.cartocdn.com` | Free tier with rate limits | Requires a **paid Carto plan** for production |
+
+The underlying **geodata** (OpenStreetMap) is open under the ODbL licence and can be used freely — the restriction is only on the tile-serving CDN.
+
+### Recommended actions before handover to IMO
+
+1. **Check whether IMO already holds a basemap licence** — many national meteorological offices have agreements with Esri or a national mapping agency.
+2. **Use a licensed tile CDN** — [Stadia Maps](https://stadiamaps.com/) and [MapTiler](https://www.maptiler.com/) both offer straightforward government/research plans and provide OSM-based roadmap, satellite, and dark-theme tile styles.
+3. **Self-host OSM tiles** — if IMO prefers full independence, a Docker-based `osm-tile-server` stack can serve OSM tiles internally.
+4. **Swap tile URLs in one place** — all tile layer URLs are defined in the `TILE_LAYERS` constant in `frontend/src/components/MapComponent.jsx` (≈ line 55) and the two CartoDB URLs in `TileLayerManager` (≈ line 84). Swapping providers requires changing only those strings.
+
+The data APIs (`hraun.vedur.is`, `api.vedur.is`) are IMO's own services and require no licensing changes.
+
+---
+
 ## Credits
 
 - Muhammad Faheem Sajjad
