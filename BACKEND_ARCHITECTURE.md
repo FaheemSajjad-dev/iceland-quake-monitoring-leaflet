@@ -6,14 +6,16 @@
 
 ## 1. Technology Stack
 
-| Component | Technology | Reason for Choice |
-|-----------|-----------|-------------------|
-| Web Framework | Flask (Python) | Lightweight, well-suited for REST APIs; Python ecosystem has strong geospatial/scientific libraries |
-| ORM | SQLAlchemy (via Flask-SQLAlchemy) | Declarative models, migration support, database-agnostic queries |
-| Database | SQLite (WAL mode) | Zero-configuration, file-based, sufficient for low-moderate concurrent reads; ideal for a single-server scientific app |
-| Scheduler | APScheduler (BackgroundScheduler) | In-process job scheduling without external dependencies (no Redis/Celery needed) |
-| HTTP Client | Requests | Standard Python HTTP library for scraping and API calls |
-| HTML Parser | BeautifulSoup4 | Robust HTML table parsing for MPGV data extraction |
+| Component | Technology |
+|-----------|-----------|
+| Web Framework | Flask (Python) |
+| ORM | SQLAlchemy (via Flask-SQLAlchemy) |
+| Database | SQLite (WAL mode) |
+| Scheduler | APScheduler (BackgroundScheduler) |
+| HTTP Client | Requests |
+| HTML Parser | BeautifulSoup4 |
+
+Flask was chosen for its simplicity — the backend is essentially a data pipeline with a REST API on top, not a full web application. APScheduler keeps the polling logic in-process without requiring Redis or Celery, which would be overkill for a single-server deployment.
 
 ---
 
@@ -98,14 +100,7 @@
 
 ### 3.2 Why SQLite?
 
-| Consideration | Assessment |
-|--------------|-----------|
-| Concurrent reads | WAL mode allows multiple simultaneous readers without blocking |
-| Write frequency | One writer every 3 minutes (scheduler) — well within SQLite's capacity |
-| Dataset size | ~1,800 merged rows, ~4,900 raw Skjalftalisa rows — trivially small |
-| Deployment | No database server to install, configure, or maintain |
-| Backup | Single file copy (`earthquakes.db`) backs up entire dataset |
-| Performance | Sub-millisecond queries on this data volume |
+The dataset is small (~1,800 merged rows, ~4,900 Skjalftalisa rows) and the write pattern is simple: one writer every 3 minutes from the scheduler. SQLite in WAL mode handles concurrent reads fine under those conditions, and it eliminates the need to run a separate database server. Backup is a single file copy. For this scale it's the obvious choice.
 
 ### 3.3 SQLite Configuration
 
@@ -257,7 +252,7 @@ Return    Query DB -> cache result -> return
 cached    (cache invalidated after each scrape cycle)
 ```
 
-**Design rationale**: The default request (all data) is the most common. Caching it for 60 seconds means multiple users hitting the page within a minute share a single database query. The cache is explicitly invalidated after each scrape cycle to ensure fresh data is served.
+The default request (no `days` filter) is the most common, so it gets cached. Multiple users hitting the page within a minute share one database query. The cache is invalidated after each scrape cycle so stale data isn't served past the next update.
 
 ---
 

@@ -6,25 +6,18 @@
 
 ## 1. Technology Stack
 
-| Component | Technology | Reason for Choice |
-|-----------|-----------|-------------------|
-| UI Framework | React 18 | Component-based architecture, strong ecosystem, hooks for state management |
-| Build Tool | Vite | Fast HMR (Hot Module Replacement), optimised production builds, modern ESM support |
-| Map Library | Leaflet 1.9 + react-leaflet 4.2 | Free and open-source (no API key needed), mature ecosystem, extensive plugin support |
-| Heatmap | leaflet.heat 0.2 | WebGL-accelerated heatmap rendering, integrates directly with Leaflet |
-| HTTP Client | Axios | Promise-based, automatic JSON parsing, timeout support |
-| Testing | Vitest + React Testing Library | Fast, Vite-native test runner with DOM testing utilities |
+| Component | Technology |
+|-----------|-----------|
+| UI Framework | React 18 |
+| Build Tool | Vite |
+| Map Library | Leaflet 1.9 + react-leaflet 4.2 |
+| Heatmap | leaflet.heat 0.2 |
+| HTTP Client | Axios |
+| Testing | Vitest + React Testing Library |
 
 ### Why Leaflet Instead of Google Maps?
 
-| Factor | Google Maps | Leaflet |
-|--------|------------|---------|
-| API Key | Required (billing account needed) | Not needed |
-| Cost | Pay-per-load after free tier | Completely free |
-| Tile sources | Google only | Any provider (OSM, Esri, CARTO) |
-| Customisation | Limited styling API | Full control over markers, layers, overlays |
-| Offline/self-hosted | Not possible | Tiles can be cached or self-hosted |
-| Bundle size | ~200 KB (Maps JS API) | ~40 KB (Leaflet core) |
+The original version used the Google Maps JavaScript API, which requires a billing-linked API key and charges per map load beyond the free tier. Leaflet is open-source, needs no API key, and pulls tiles from free providers (OSM, Esri, CartoDB). For a research project that may eventually be handed off to IMO, removing the billing dependency was the main motivation.
 
 ---
 
@@ -377,7 +370,7 @@ This matches the intuitive expectation: "raising the bar" = fewer events.
 
 ### 6.1 Why No Redux/Zustand?
 
-The application has a simple state tree with a single data source (the API) and straightforward unidirectional data flow. React's built-in `useState` and `useCallback` hooks are sufficient. Adding a state management library would introduce unnecessary complexity for this use case.
+There's one data source (the API), one root component that owns all state, and straightforward top-down prop passing. Adding a state management library would be adding infrastructure for its own sake here.
 
 ### 6.2 State Hierarchy
 

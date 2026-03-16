@@ -81,16 +81,13 @@ The **Heatmap** is the 4th map type, designed for density analysis rather than i
 
 **Heatmap weight:** every earthquake counts equally (weight 1.0); events M 4–5 get a small boost (1.15) and M 5+ get 1.3 — density drives the visualization, not magnitude alone.
 
-**Gradient:** Perceptually linear ramp — transparent → dark blue → steel blue → teal → amber → orange → red. Equal-weight stops avoid the oversized yellow band of earlier designs; amber replaces bright yellow for readability on dark basemaps.
+**Gradient:** transparent → dark blue → steel blue → teal → amber → orange → red. Amber replaces bright yellow to stay readable on dark basemaps.
 
-**Zoom-responsive radius:** pixel radius grows with zoom level so clusters remain visible when inspecting detail (z≤5: 15 px, z≤6: 22 px, z≤7: 30 px, z≤8: 38 px, z≤9: 48 px, z>9: 58 px).
+**Zoom-responsive radius:** pixel radius grows with zoom so clusters stay visible at higher detail levels.
 
-**Density legend:** a `Earthquake density` gradient bar (Low → High) is shown in the bottom-right corner when the heatmap layer is active, matching the exact gradient colours used in the heat layer.
+**Density legend:** a gradient bar (Low → High) is shown in the bottom-right when the heatmap is active.
 
-**Behaviour differences from other layers:**
-- Earthquake markers are hidden (removed via `L.layerGroup`, O(1))
-- Timeline / Magnitude colour toggle is not shown
-- Minimum zoom level is **5.5** (same as all other layers)
+When heatmap mode is active, individual earthquake markers are hidden and the timeline/magnitude colour toggle is not shown.
 
 **Dependency:** `leaflet.heat`
 
