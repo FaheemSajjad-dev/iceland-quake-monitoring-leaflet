@@ -21,7 +21,6 @@ const App = () => {
     const [magnitudeFilter, setMagnitudeFilter] = useState(2.7);
     const [colorOwner, setColorOwner] = useState('timeline');
 
-    // State for date range selection - now including days
     const [dateRange, setDateRange] = useState({
         startYear: 2020,
         startMonth: 6,
@@ -32,10 +31,8 @@ const App = () => {
         isDayPrecision: false
     });
 
-    // About overlay state
     const [showAbout, setShowAbout] = useState(false);
 
-    // Load earthquake + volcano data
     const loadData = useCallback(async () => {
         try {
             const data = await fetchEarthquakeData();
@@ -50,7 +47,6 @@ const App = () => {
         }
     }, []);
 
-    // Fetch data automatically
     useEffect(() => {
         loadData();
         const interval = setInterval(loadData, 3 * 60 * 1000);
@@ -64,7 +60,6 @@ const App = () => {
         setMaxMagnitude(mags.length ? mags.reduce((a, b) => a > b ? a : b, 2.7) : 5.8);
     }, [allData]);
 
-    // Filter data based on selected date range and magnitude
     useEffect(() => {
         if (allData.length === 0) return;
 
@@ -118,7 +113,6 @@ const App = () => {
     return (
         <div className="app-container">
             <div className="map-container">
-                {/* About button */}
                 <div className="about-button-container">
                     <button
                         className="nav-button"
@@ -159,7 +153,6 @@ const App = () => {
                 />
             </div>
 
-            {/* About overlay */}
             {showAbout && <About onClose={() => setShowAbout(false)} />}
         </div>
     );

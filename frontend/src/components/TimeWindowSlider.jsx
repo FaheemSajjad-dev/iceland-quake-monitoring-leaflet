@@ -2,32 +2,27 @@ import { useState, useEffect, useRef } from "react";
 import './TimeWindowSlider.css';
 
 const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
-  // Starting date: June 1, 2020.
   const startDate = new Date(2020, 5, 1);
   const currentDate = new Date();
 
-  // Calculate total days, months, and years.
   const totalDays = Math.floor((currentDate - startDate) / (1000 * 60 * 60 * 24));
   const totalMonths =
     (currentDate.getFullYear() - startDate.getFullYear()) * 12 +
     (currentDate.getMonth() - startDate.getMonth()) + 1;
-  // Local state: zoom level and view offset.
+
   const [zoomLevel, setZoomLevel] = useState(1.0);
   const [viewOffset, setViewOffset] = useState(1.0);
 
-  // Determine mode.
   const isDayViewMode = zoomLevel < 0.04;
   const isWeekMode    = !isDayViewMode && zoomLevel < 0.15;
-  const isYearMode    = zoomLevel >= 0.95; // Fully zoomed out = year mode.
-  
-  // Refs for dragging.
+  const isYearMode    = zoomLevel >= 0.95;
+
   const sliderRef = useRef(null);
   const trackRef = useRef(null);
   const isDraggingRef = useRef(false);
   const dragStartXRef = useRef(0);
   const dragStartOffsetRef = useRef(0);
 
-  // Calculate visible range based on current mode.
   const calculateVisibleRange = () => {
     if (isDayViewMode) {
       const minDays = 3;
@@ -80,9 +75,7 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
 			lastVisibleMonthIndex: firstVisibleMonthIndex + visibleMonths - 1,
 		};
 	} else {
-		// months mode...
-
-      // Months mode: continuous mapping from zoom → span (no jump from years)
+      // Months mode: continuous mapping from zoom → span
       const visibleMonths = Math.max(
         1,
         Math.min(totalMonths, Math.round(totalMonths * zoomLevel))
@@ -131,7 +124,6 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
 	};
 
 
-  // Debounced parent update.
   const updateParentWithCurrentRange = () => {
     const range = calculateVisibleRange();
     if (range.isDayView || range.isWeekMode) {
@@ -171,7 +163,6 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
     updateParentWithCurrentRange();
   }, []);
 
-  // Drag handlers.
   const handleMouseDown = (e) => {
     if (!trackRef.current) return;
     
@@ -192,10 +183,8 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
     const trackWidth = trackRef.current.offsetWidth;
     const deltaX = e.clientX - dragStartXRef.current;
     
-    // Apply sensitivity factor - adjusted for faster dragging
+    // Moving right scrolls to earlier dates, so delta is negated
     let sensitivityFactor = isDayViewMode ? 0.1 : 2.0;
-    
-    // Calculate new offset - negative because moving right means going to earlier dates
     const deltaRatio = (-deltaX / trackWidth) * sensitivityFactor;
     const newOffset = Math.max(0, Math.min(1, dragStartOffsetRef.current + deltaRatio));
     
@@ -234,20 +223,18 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
     const cursorX = e.clientX - rect.left;
     const cursorRatio = Math.max(0, Math.min(1, cursorX / rect.width || 0)); // 0–1
 
-    // === 1) Compute new zoom level (same logic as before) ===
     const raw = e.deltaY;
     const clamped = Math.max(-60, Math.min(60, raw));
-    const k = zoomLevel < 0.1 ? 0.004 : 0.008; // gentler in day/close zoom
+    const k = zoomLevel < 0.1 ? 0.004 : 0.008; // gentler at high zoom
     const scale = Math.exp(clamped * k);
 
     const oldZoom = zoomLevel;
     const newZoom = Math.max(0.01, Math.min(1.0, zoomLevel * scale));
 
-    // === 2) MONTH MODE: do proper month math to avoid big jumps ===
+    // Month mode: anchor zoom to the month under the cursor to avoid big jumps
     if (!isDayViewMode && !isWeekMode && !isYearMode) {
-      // Use current visible month range from our helper
       const range = calculateVisibleRange();
-      const N = totalMonths; // total months from June 2020 → now
+      const N = totalMonths;
 
       const Mold = Math.max(
         1,
@@ -258,7 +245,6 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
       // Absolute month index under the cursor before zoom
       const iUnderCursor = i0old + cursorRatio * Mold;
 
-      // New visible months from zoom level
       const Mnew = Math.max(
         1,
         Math.min(N, Math.round(totalMonths * newZoom))
@@ -278,7 +264,7 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
       return;
     }
 
-    // === 3) DAY / WEEK / YEAR MODES: keep behaviour similar to before ===
+    // Day / week / year modes
     const absolutePoint = viewOffset + cursorRatio * oldZoom;
     let newOffset = absolutePoint - cursorRatio * newZoom;
 
@@ -335,13 +321,11 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
   };
 
 
-  // --- Divider Generation ---
 	const generateDividers = () => {
 		const dividers = [];
 		const labels = [];
 		const range = calculateVisibleRange();
 
-		// --- 1) DAY / WEEK MODES (unchanged idea) ---------------------------
 		if (range.isDayView || range.isWeekMode) {
 			const { firstVisibleDate, lastVisibleDate } = range;
 			const oneDay = 24 * 60 * 60 * 1000;
@@ -373,7 +357,6 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
 					/>
 				);
 
-				// Day labels at key positions
 				if (labelIndices.includes(i)) {
 					labels.push(
 						<div
@@ -406,7 +389,7 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
 			return { dividers, labels };
 		}
 
-		// --- 2) MONTH & YEAR MODES (shared, month-based axis) ---------------
+		// Month & year modes share a month-based axis
 		const visibleMonths = range.visibleMonths || 0;
 		const firstVisibleMonthIndex = range.firstVisibleMonthIndex || 0;
 
@@ -533,18 +516,13 @@ const TimeWindowSlider = ({ onFilterChange, colorOwner = 'timeline' }) => {
 
   const { dividers, labels } = generateDividers();
 
-  // --- Background Color ---
-// let CSS classes control the background
-const trackStyle = { cursor: "grab" };
-
-
   return (
     <div className={`time-window-slider-container ${isDayViewMode ? "day-view" : ""}`}>
       <div className="timeline-slider" ref={sliderRef}>
         <div
           className={`timeline-track ${colorOwner === 'magnitude' ? 'gray' : 'colored'}`}
           ref={trackRef}
-          style={trackStyle}
+          style={{ cursor: "grab" }}
           onMouseDown={handleMouseDown}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -553,7 +531,6 @@ const trackStyle = { cursor: "grab" };
           {dividers}
         </div>
 
-        {/* Labels under the track */}
         <div className={isDayViewMode ? "day-labels" : "year-labels"}>
           {labels}
         </div>

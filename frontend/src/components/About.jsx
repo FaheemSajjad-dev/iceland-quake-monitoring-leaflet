@@ -17,7 +17,7 @@ const About = ({ onClose }) => {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // Focus the close button when dialog mounts (simple, non-intrusive focus management)
+  // Focus close button on mount
   useEffect(() => {
     closeBtnRef.current?.focus();
   }, []);
@@ -56,7 +56,6 @@ const About = ({ onClose }) => {
         </header>
 
         <div className="about-body" id="about-desc">
-          {/* ---------- Overview ---------- */}
           <section className="about-section">
             <h3>Overview</h3>
             <p>
@@ -123,7 +122,6 @@ const About = ({ onClose }) => {
 
           </section>
 
-          {/* ---------- Data Export ---------- */}
           <section className="about-section">
             <h3>Data export</h3>
             <p>
@@ -133,16 +131,12 @@ const About = ({ onClose }) => {
             <button
               type="button"
               className="download-csv-button"
-              onClick={() => {
-                // open in a new tab / trigger browser download
-                window.open(`${API_URL}/earthquakes_csv`, "_blank", "noopener,noreferrer");
-              }}
+              onClick={() => window.open(`${API_URL}/earthquakes_csv`, "_blank", "noopener,noreferrer")}
             >
               Download CSV
             </button>
           </section>
 
-          {/* ---------- Contact ---------- */}
           <section className="about-section">
             <h3>Contact</h3>
             <p>For feedback, collaboration, or support:</p>
@@ -159,7 +153,6 @@ const About = ({ onClose }) => {
             </ul>
           </section>
 
-          {/* ---------- Credits ---------- */}
           <section className="about-section">
             <h3>Credits</h3>
             <ul>
@@ -169,8 +162,6 @@ const About = ({ onClose }) => {
             </ul>
           </section>
 
-          {/* ---------- Optional Disclaimer ---------- */}
-          
           <section className="about-section disclaimer">
             <h3>Disclaimer</h3>
             <p>

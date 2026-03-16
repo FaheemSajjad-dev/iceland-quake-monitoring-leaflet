@@ -14,9 +14,8 @@ const MagnitudeScale = ({ minMagnitude, maxMagnitude, onMagnitudeFilterChange, c
   const handleSliderChange = (e) => {
     const value = parseFloat(e.target.value);
     const invertedValue = maxMagnitude - (value - minMagnitude);
-    // Update visual position immediately
     setFilterValue(invertedValue);
-    // Defer the expensive filter+marker rebuild until dragging pauses
+    // Defer the filter+marker rebuild until dragging pauses
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       if (onMagnitudeFilterChange) onMagnitudeFilterChange(invertedValue);
@@ -31,10 +30,7 @@ const MagnitudeScale = ({ minMagnitude, maxMagnitude, onMagnitudeFilterChange, c
     return (1 - valueRatio) * 100;
   };
 
-  // Decide which bar color to show based on colorOwner
-  const barClass = colorOwner === 'magnitude' 
-      ? 'scale-bar-colored'   // show heat ramp
-      : 'scale-bar-gray';     // show neutral gray
+  const barClass = colorOwner === 'magnitude' ? 'scale-bar-colored' : 'scale-bar-gray';
 
   return (
     <div className="magnitude-scale vertical">

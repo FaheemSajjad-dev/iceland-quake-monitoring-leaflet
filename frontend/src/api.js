@@ -1,9 +1,6 @@
 import axios from "axios";
 
-// Check if we're running locally
 const isLocalDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-
-// Set the API URL accordingly - make sure the ports match your setup
 export const API_URL = isLocalDev ? "http://localhost:5001" : "";
 
 export const fetchEarthquakeData = async () => {
@@ -36,7 +33,6 @@ export const triggerVolcanoScrape = async () => {
     }
 };
 
-// Live ShakeMap lookup via EPOS (returns null if none found)
 export async function fetchShakeMapValidated(dt, lat, lon) {
   try {
     const params = new URLSearchParams({ dt, lat, lon });

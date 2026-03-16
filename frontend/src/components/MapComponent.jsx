@@ -10,7 +10,6 @@ import { parseBackendUtcDate } from "../utils/datetime";
 
 const CENTER = [64.9631, -19.0208];
 
-// ─── Magnitude colour helpers ─────────────────────────────────────────────────
 const MIN_MAG = 2.7;
 const MAG_PALETTE_STOPS = ["#FDE725", "#5DC863", "#21918C", "#3B528B", "#440154"];
 
@@ -41,7 +40,6 @@ const getMarkerPixelSize = (mag, maxMag) => {
   return Math.round(8 + Math.pow(t, 0.7) * 6);
 };
 
-// ─── Twilight timeline colours ────────────────────────────────────────────────
 const TWILIGHT_MONTH_COLORS = [
   "#e2d9ff", "#cbb9f6", "#a991e0", "#8667c2",
   "#6a51a3", "#4b2f86", "#2d1a6f", "#234078",
@@ -54,7 +52,6 @@ const getTwilightColorForDate = (isoString) => {
   return TWILIGHT_MONTH_COLORS[d.getUTCMonth()] || "#6a51a3";
 };
 
-// ─── Tile layer definitions ───────────────────────────────────────────────────
 const TILE_LAYERS = {
   roadmap: {
     url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -84,7 +81,6 @@ const TILE_PROPS = {
   detectRetina:      false, // do not request 2× tiles (e.g. @2x via {r}); avoids over-requesting and potential blank tiles on retina screens where provider has no hi-res variant
 };
 
-// ─── TileLayer switcher ───────────────────────────────────────────────────────
 const TileLayerManager = ({ mapType }) => {
   if (mapType === "heatmap") {
     // Base terrain (no labels) → heatmap renders above this → labels on top
@@ -123,7 +119,6 @@ const TileLayerManager = ({ mapType }) => {
   );
 };
 
-// ─── Dynamic minZoom controller ──────────────────────────────────────────────
 const MinZoomController = ({ mapType }) => {
   const map = useMap();
   useEffect(() => {
@@ -132,9 +127,7 @@ const MinZoomController = ({ mapType }) => {
   return null;
 };
 
-// ─── invalidateSize after mount ───────────────────────────────────────────────
-// Ensures the map measures its container correctly even if CSS finishes after
-// the initial Leaflet render (can cause a half-grey viewport otherwise).
+// Ensures the map measures its container correctly if CSS finishes after initial render.
 const MapReadyHandler = () => {
   const map = useMap();
   useEffect(() => {
@@ -144,13 +137,11 @@ const MapReadyHandler = () => {
   return null;
 };
 
-// ─── Map click handler ────────────────────────────────────────────────────────
 const MapClickHandler = ({ onClick }) => {
   useMapEvents({ click: onClick });
   return null;
 };
 
-// ─── Adaptive lat/lon grid ────────────────────────────────────────────────────
 const GridOverlay = ({ show, isDarkMode, mapType }) => {
   const map = useMap();
   const gridRef = useRef([]);
@@ -270,7 +261,6 @@ const GridOverlay = ({ show, isDarkMode, mapType }) => {
   return null;
 };
 
-// ─── Earthquake marker helpers ────────────────────────────────────────────────
 const quakeKey = (q) => `${q["Date-time"]}_${q.Latitude}_${q.Longitude}`;
 
 const makeQuakeIcon = (px, color, isSelected) => {
@@ -283,7 +273,6 @@ const makeQuakeIcon = (px, color, isSelected) => {
   return L.divIcon({ className: "", html: svg, iconSize: [activePx, activePx], iconAnchor: [half, half] });
 };
 
-// ─── Earthquake markers ───────────────────────────────────────────────────────
 const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMarkerClick, visible }) => {
   const map = useMap();
   const layerGroupRef = useRef(null);
@@ -309,7 +298,6 @@ const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMar
     else { map.removeLayer(lg); }
   }, [map, visible]);
 
-  // Rebuild markers into the layer group when data or icons change
   useEffect(() => {
     const lg = layerGroupRef.current;
     if (!lg) return;
@@ -359,8 +347,7 @@ const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMar
   return null;
 };
 
-// ─── Native heatmap layer (leaflet.heat) ─────────────────────────────────────
-// Standard seismic color ramp: transparent → blue → cyan → green → yellow → orange → red
+// Color ramp: transparent → blue → cyan → yellow → orange → red
 const HEAT_GRADIENT = {
   0.00: 'rgba(33,102,172,0)',  // transparent
   0.15: '#2c7bb6',              // medium blue   (first visible)
@@ -420,7 +407,6 @@ const HeatmapLayer = ({ earthquakes }) => {
     }).addTo(map);
   }, [map, earthquakes, pluginReady]);
 
-  // Initial draw + cleanup on unmount / data change
   useEffect(() => {
     rebuild();
     return () => {
@@ -437,7 +423,6 @@ const HeatmapLayer = ({ earthquakes }) => {
   return null;
 };
 
-// ─── Main component ───────────────────────────────────────────────────────────
 const MapComponent = ({
   earthquakes,
   volcanoes = [],
@@ -480,7 +465,6 @@ const MapComponent = ({
     return () => clearTimeout(t);
   }, [selectedVolcano]);
 
-  // ShakeMap fetch
   useEffect(() => {
     let cancelled = false;
     async function look() {
@@ -525,12 +509,10 @@ const MapComponent = ({
 
   return (
     <div className="map-container" style={{ position: "relative" }}>
-      {/* Map type selector */}
       <div className="map-type-control">
         <MapTypeSelector onMapTypeChange={handleMapTypeChange} />
       </div>
 
-      {/* Color mode toggle — hidden on heatmap (no markers to color) */}
       {mapType !== "heatmap" && (
         <div className="color-toggle-container">
           <div className="color-mode-switch">
@@ -544,7 +526,6 @@ const MapComponent = ({
         </div>
       )}
 
-      {/* Volcano toggle */}
       <div className="volcano-toggle-container">
         <div className="volcano-toggle">
           <label className="switch">
@@ -555,7 +536,6 @@ const MapComponent = ({
         </div>
       </div>
 
-      {/* Grid toggle */}
       <div className="grid-toggle-container">
         <div className="volcano-toggle grid-toggle">
           <label className="switch">
@@ -566,7 +546,6 @@ const MapComponent = ({
         </div>
       </div>
 
-      {/* Leaflet map */}
       <MapContainer
         center={CENTER}
         zoom={6}
@@ -608,7 +587,6 @@ const MapComponent = ({
           ))}
       </MapContainer>
 
-      {/* Earthquake info panel */}
       {selectedEarthquake && (
         <div className="earthquake-info">
           <p><b>Magnitude: {selectedEarthquake.Mw_mean ?? "N/A"}</b></p>
@@ -629,7 +607,6 @@ const MapComponent = ({
         </div>
       )}
 
-      {/* Volcano info panel */}
       {selectedVolcano && (
         <div className="volcano-info" style={{ maxWidth: "220px" }}>
           <h3>{selectedVolcano.name}</h3>
