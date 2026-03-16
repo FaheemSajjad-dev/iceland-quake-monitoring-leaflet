@@ -3,22 +3,20 @@ from typing import Iterable, List, Dict, Optional, Tuple
 from datetime import datetime, timedelta, timezone
 import time as _time
 import requests
-from app import app, db  # uses my existing Flask app & db
-from app import EarthquakeSRaw
+from app import app, db, EarthquakeSRaw
 
 
 API_URL = "https://api.vedur.is/skjalftalisa/v1/quake/array"
 
-# Do not consider data before this (as you requested)
+# Don’t fetch data before this date
 CUTOFF_UTC = datetime(2020, 6, 1, 0, 0, 0, tzinfo=timezone.utc)
 
-# API note: you can only fetch <= 1 year per request
+# API limit: max 1 year per request
 MAX_SPAN_DAYS = 365
 DEFAULT_TIMEOUT = 20
 DEFAULT_RETRIES = 3
 DEFAULT_BACKOFF = 0.8
 
-# Your new display minimum (we’ll still allow overriding for tests)
 DEFAULT_MIN_MAG = 2.7
 
 # ---- Utilities --------------------------------------------------------------
@@ -146,9 +144,7 @@ def fetch_skjalftalisa(
         if not isinstance(first_col, list):
             continue  # null columns = no results for this chunk
 
-        # Build rows
         n_rows = len(first_col)
-
         for i in range(n_rows):
             raw = {k: data[k][i] for k in keys}
 
@@ -159,7 +155,7 @@ def fetch_skjalftalisa(
             mag = _safe_float(raw.get("magnitude"))
 
             if t_str is None or lat is None or lon is None:
-                continue  # essential fields
+                continue
 
             results.append({
                 "event_id": raw.get("event_id"),

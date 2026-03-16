@@ -25,7 +25,6 @@ DEFAULT_HEADERS = {
     "Accept": "application/json",
 }
 
-# URL
 def _get_json(url: str, timeout: int = 25):
     for i in range(3):
         try:

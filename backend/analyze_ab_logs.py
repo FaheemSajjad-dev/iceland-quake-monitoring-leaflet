@@ -36,7 +36,6 @@ def main():
     for r in results:
         print(f"{r['file']}: RPS={r['rps']}, mean={r['mean_ms']} ms, p95={r['p95_ms']} ms, failed={r['failed']}")
 
-    # Aggregate stats
     valid_rps = [r["rps"] for r in results if r["rps"] is not None]
     valid_p95 = [r["p95_ms"] for r in results if r["p95_ms"] is not None]
 

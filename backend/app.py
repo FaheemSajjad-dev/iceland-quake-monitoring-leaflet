@@ -123,8 +123,7 @@ class EarthquakeMerged(db.Model):
 # --- ShakeMap link cache table ---------------------------------------------
 class ShakeMapLink(db.Model):
     __tablename__ = "shakemap_links"
-    # primary key: your catalog datetime string (same as EarthquakeMerged.date_time)
-    dt = db.Column(db.String, primary_key=True)
+    dt = db.Column(db.String, primary_key=True)  # matches EarthquakeMerged.date_time
 
     url_view_file = db.Column(db.String)
     origin_time   = db.Column(db.String)
@@ -296,15 +295,12 @@ def get_earthquake_data_csv():
                 ).strftime("%Y-%m-%d %H:%M:%S")
                 q = q.filter(EarthquakeMerged.date_time >= cutoff)
             except ValueError:
-                # bad days param -> fallback to ALL
                 pass
 
         rows = q.order_by(EarthquakeMerged.date_time.asc()).all()
 
         output = io.StringIO()
         writer = csv.writer(output)
-
-        # Header: polished fields shown on the web map
         writer.writerow(["Date-time", "Latitude", "Longitude", "Depth_km", "Mw_mean", "status"])
 
         for r in rows:
@@ -360,9 +356,7 @@ def get_volcano_data():
 
 @app.route("/reconcile", methods=["POST"])
 def run_reconcile():
-    """
-    Manual trigger to run the reconcile (useful for a button in your UI or Postman).
-    """
+    """Manual trigger to rerun the reconcile step."""
     from reconcile import match_and_merge
     end = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     start = "2020-06-01 00:00:00"
@@ -372,9 +366,7 @@ def run_reconcile():
 
 @app.route("/health", methods=["GET"])
 def health():
-    """
-    Quick stats to verify the pipeline is healthy.
-    """
+    """Row counts for each table — quick sanity check."""
     with app.app_context():
         return jsonify({
             "MPGV": Earthquake.query.count(),

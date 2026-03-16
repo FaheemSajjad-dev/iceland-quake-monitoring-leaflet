@@ -1,8 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from math import radians, sin, cos, asin, sqrt
 
-from app import app, db, Earthquake, EarthquakeMerged, EarthquakeSRaw  # Earthquake = your current MPGV table
-# If your MPGV model class is named differently, import that instead.
+from app import app, db, Earthquake, EarthquakeMerged, EarthquakeSRaw
 
 DIST_LIMIT_KM = 10.0
 DM_LIMIT = 3.0
@@ -20,8 +19,8 @@ def haversine_km(lat1, lon1, lat2, lon2):
 
 def match_and_merge(start_utc, end_utc, min_mag=2.7):
     """
-    Reads MPGV events from Earthquake (your current table) and Skjálftalísa from earthquake_s_raw,
-    applies your rules, and writes to earthquake_merged.
+    Match MPGV events (Earthquake) against Skjálftalísa (earthquake_s_raw)
+    and write results to earthquake_merged.
     """
     with app.app_context():
         # 1) Load S rows into time-buckets (second -> list)
@@ -35,7 +34,7 @@ def match_and_merge(start_utc, end_utc, min_mag=2.7):
             # s.date_time is 'YYYY-MM-DD HH:MM:SS' UTC
             s_by_sec.setdefault(s.date_time, []).append(s)
 
-        # 2) Load V rows (from your current Earthquake table)
+        # 2) Load V rows (MPGV)
         v_rows = Earthquake.query.filter(
             Earthquake.date_time >= start_utc,
             Earthquake.date_time <= end_utc,
@@ -49,7 +48,7 @@ def match_and_merge(start_utc, end_utc, min_mag=2.7):
         ).delete()
         db.session.commit()
 
-        # 4) Match each v to s by your rules
+        # 4) Match each v to s
         inserted = 0
         n_matched = 0
         n_v_only = 0
@@ -73,8 +72,6 @@ def match_and_merge(start_utc, end_utc, min_mag=2.7):
                     # keep (distance, abs dt, dm, s)
                     dt_abs = abs((datetime.strptime(vt, "%Y-%m-%d %H:%M:%S") - datetime.strptime(s.date_time, "%Y-%m-%d %H:%M:%S")).total_seconds())
                     candidates.append((dist, dt_abs, dm, s))
-
-            # after you’ve built the `candidates` list …
 
             if len(candidates) == 0:
                 # v_only
@@ -134,16 +131,14 @@ def match_and_merge(start_utc, end_utc, min_mag=2.7):
                 n_matched += 1
 
             else:
-                # ambiguous (≥2). Choose policy:
-                # (A) keep v_only  OR  (B) keep best but mark 'ambiguous'
-                # Here we do (A):
+                # ≥2 candidates — ambiguous, fall back to v_only
                 m = EarthquakeMerged(
                     date_time=v.date_time,
                     latitude=v.latitude,
                     longitude=v.longitude,
                     depth=v.depth,
                     mw_mean=v.mw_mean,
-                    status="v_only",     # or "ambiguous" if you prefer a 3rd state
+                    status="v_only",
                     s_event_id=None,
                     match_dt_sec=None,
                     match_dist_km=None,
@@ -161,7 +156,6 @@ def match_and_merge(start_utc, end_utc, min_mag=2.7):
 if __name__ == "__main__":
     end = datetime.now(timezone.utc).replace(microsecond=0)
     start = end - timedelta(days=30)
-    # strings because our DB columns are TEXT timestamps
     start_str = start.strftime("%Y-%m-%d %H:%M:%S")
     end_str   = end.strftime("%Y-%m-%d %H:%M:%S")
     match_and_merge(start_str, end_str, min_mag=2.7)

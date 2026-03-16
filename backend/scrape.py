@@ -6,20 +6,12 @@ import os
 import sqlite3
 from sqlalchemy.exc import IntegrityError
 
-# Get the path of the current script file
 CURRENT_FILE_PATH = os.path.dirname(os.path.abspath(__file__))
-
-# Define the data directory path relative to this file
 DB_DIR = os.path.join(CURRENT_FILE_PATH, "data")
 os.makedirs(DB_DIR, exist_ok=True)
-
-# Define the database path
 DB_PATH = os.path.join(DB_DIR, "earthquakes.db")
 
-# Import app-related components only when running within Flask context
 try:
-    # We will try to import from app, but be prepared for it to fail
-    # if running as standalone script
     from app import app, db, Earthquake
     USING_FLASK = True
 except (ImportError, ModuleNotFoundError):
@@ -61,7 +53,7 @@ def get_monthly_data(year, month):
             try:
                 mw_mean = float(mw_mean)
                 if mw_mean < 2.7:
-                    continue  # Skip entries with magnitude < 2.7
+                    continue
             except ValueError:
                 continue
 
@@ -76,25 +68,22 @@ def get_monthly_data(year, month):
     return data
 
 def scrape_all_earthquake_data():
-    """Scrapes new earthquake data and inserts only new records to SQLite."""
+    """Scrape MPGV and insert new records (M ≥ 2.7) into the database."""
     if USING_FLASK:
-        # Use Flask app context and SQLAlchemy
         from app import app, db, Earthquake
         with app.app_context():
             _scrape_and_save_with_flask()
     else:
-        # Use direct SQLite connection
         _scrape_and_save_with_sqlite()
 
 def _scrape_and_save_with_flask():
-    """Implementation that uses Flask app context and SQLAlchemy."""
     from app import db, Earthquake
-    
+
     response = requests.get(BASE_URL, timeout=20)
     soup = BeautifulSoup(response.content, 'html.parser')
     year_links = sorted([a['href'].strip('/') for a in soup.find_all('a', href=re.compile(r'^\d{4}/$'))], reverse=True)
 
-    new_entries = 0  # Track new records added
+    new_entries = 0
 
     for year in year_links:
         year_url = f"{BASE_URL}{year}/"
@@ -108,23 +97,18 @@ def _scrape_and_save_with_flask():
 
             for quake in monthly_data:
                 try:
-                    # Insert only if not already in DB
                     db.session.add(Earthquake(**quake))
                     db.session.commit()
                     new_entries += 1
                 except IntegrityError:
-                    db.session.rollback()  # Ignore duplicates
+                    db.session.rollback()
                     continue
 
-    print(f":) {new_entries} new earthquake records added to SQLite via Flask.")
+    print(f"{new_entries} new earthquake records added (Flask).")
 
 def _scrape_and_save_with_sqlite():
-    """Implementation that uses direct SQLite connection without Flask."""
-    # Connect to SQLite directly
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
-    # Create Earthquake table if it doesn't exist
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS earthquake (
         id INTEGER PRIMARY KEY,
@@ -141,21 +125,20 @@ def _scrape_and_save_with_sqlite():
     soup = BeautifulSoup(response.content, 'html.parser')
     year_links = sorted([a['href'].strip('/') for a in soup.find_all('a', href=re.compile(r'^\d{4}/$'))], reverse=True)
 
-    new_entries = 0  # Track new records added
+    new_entries = 0
 
-    for year in year_links[:1]:  # Limit to most recent year for faster processing
+    for year in year_links[:1]:  # most recent year only
         year_url = f"{BASE_URL}{year}/"
         year_response = requests.get(year_url, timeout=20)
         year_soup = BeautifulSoup(year_response.content, 'html.parser')
         month_links = sorted([a['href'].strip('.html') for a in year_soup.find_all('a', href=re.compile(r'^\d{4}-\d{2}\.html$'))], reverse=True)
 
-        for month in month_links[:2]:  # Limit to most recent 2 months for faster processing
+        for month in month_links[:2]:  # most recent 2 months only
             _yr, month_num = month.split('-')
             monthly_data = get_monthly_data(year, month_num)
 
             for quake in monthly_data:
                 try:
-                    # Insert only if not already in DB
                     cursor.execute('''
                     INSERT OR IGNORE INTO earthquake (date_time, latitude, longitude, depth, mw_mean)
                     VALUES (?, ?, ?, ?, ?)
@@ -172,11 +155,9 @@ def _scrape_and_save_with_sqlite():
                     print(f":( SQLite error: {e}")
                     continue
 
-    # Commit changes and close connection
     conn.commit()
     conn.close()
-    
-    print(f":) {new_entries} new earthquake records added to SQLite via direct connection.")
+    print(f"{new_entries} new earthquake records added (direct SQLite).")
 
 if __name__ == "__main__":
     scrape_all_earthquake_data()
