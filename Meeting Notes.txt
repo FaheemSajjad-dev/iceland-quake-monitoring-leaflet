@@ -14,7 +14,10 @@ map layers discussion with MET office --------------------
 
 marker rendering performance (~297 MB, slow pan/zoom locally)
   - currently ~1800 DOM markers (L.divIcon, one SVG per quake)
-  - fix: switch to L.circleMarker (canvas-based, single paint call)
-  - trade-off: squares become circles, colours/sizes stay the same
-  - to discuss with supervisor before changing
+  - changed earthquake markers from square SVG/divIcon markers to Leaflet L.circleMarker markers
+  - this was necessary because square markers relied on many separate DOM/SVG elements, which made pan/zoom rendering heavy and slowed the map locally
+  - L.circleMarker uses Leaflet's canvas rendering path, reducing marker rendering overhead and improving redraw speed
+  - trade-off: squares became circles, while marker colours and size scaling were kept the same
+  - result: improved marker rendering quality, smoother pan/zoom behaviour, and faster overall map rendering
 
+.md files and documentation still have square marker version
