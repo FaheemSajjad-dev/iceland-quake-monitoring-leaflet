@@ -28,7 +28,13 @@ except Exception:  # noqa: BLE001
 # App & DB setup
 # -----------------------------------------------------------------------------
 app = Flask(__name__)
-CORS(app)
+
+# Restrict CORS to known frontend origins (add production domain when deploying)
+_ALLOWED_ORIGINS = [
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+]
+CORS(app, origins=_ALLOWED_ORIGINS)
 if Compress:
     Compress(app)
 
@@ -325,7 +331,9 @@ def get_earthquake_data_csv():
 
 @app.route('/scrape-volcanoes', methods=['GET'])
 def scrape_volcanoes():
-    """Fetch and save live volcano data from EPOS Iceland API (discovered automatically)."""
+    """Fetch and save live volcano data from EPOS Iceland API (localhost only)."""
+    if request.remote_addr not in ("127.0.0.1", "::1"):
+        return jsonify({"error": "Forbidden"}), 403
     try:
         sys.path.append(CURRENT_FILE_PATH)
         from volcano_scraper import refresh_volcanoes
@@ -334,7 +342,8 @@ def scrape_volcanoes():
             return jsonify({"message": "EPOS volcanoes fetched and saved.", "source": "epos"})
         return jsonify({"message": "No volcano data was found from EPOS API.", "source": "none"}), 502
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logging.exception("scrape-volcanoes failed")
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @app.route('/volcanoes', methods=['GET'])
@@ -358,7 +367,9 @@ def get_volcano_data():
 
 @app.route("/reconcile", methods=["POST"])
 def run_reconcile():
-    """Manual trigger to rerun the reconcile step."""
+    """Manual trigger to rerun the reconcile step (localhost only)."""
+    if request.remote_addr not in ("127.0.0.1", "::1"):
+        return jsonify({"error": "Forbidden"}), 403
     from reconcile import match_and_merge
     end = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     start = "2020-06-01 00:00:00"
@@ -414,7 +425,8 @@ def shakemap_lookup():
         r.raise_for_status()
         items = r.json() if isinstance(r.json(), list) else []
     except Exception as e:
-        return jsonify({"found": False, "reason": f"fetch error: {e}"}), 502
+        logging.exception("shakemap_lookup fetch failed")
+        return jsonify({"found": False, "reason": "upstream fetch error"}), 502
 
     # pick the closest in time+space with simple thresholds
     best = None
@@ -474,4 +486,4 @@ def shakemap(dt):
 if __name__ == "__main__":
     print(f"Starting server with database at: {DB_PATH}")
     start_background_services()
-    app.run(debug=True, port=5001)
+    app.run(debug=False, port=5001)

@@ -19,7 +19,21 @@
       "Bash(robocopy \"f:\\\\iceland-quake-monitoring\" \"f:\\\\iceland-quake-monitoring-leaflet\" /S /XD \"node_modules\" \"dist\" \"__pycache__\" \".git\" /XF \"*.pyc\" \"*.db\" \"*.db-shm\" \"*.db-wal\")",
       "Bash(powershell -Command \"robocopy ''f:\\\\iceland-quake-monitoring'' ''f:\\\\iceland-quake-monitoring-leaflet'' /E /XD node_modules dist __pycache__ .git /XF ''*.pyc'' ''*.db'' ''*.db-shm'' ''*.db-wal''; if \\($LASTEXITCODE -le 7\\) { Write-Host ''Done'' } else { Write-Host ''Error'' $LASTEXITCODE }\")",
       "Bash(powershell -Command \"Remove-Item -Recurse -Force ''f:\\\\iceland-quake-monitoring-leaflet'' -ErrorAction SilentlyContinue; Write-Host ''cleaned''\")",
-      "Bash(powershell -Command \"robocopy ''f:\\\\iceland-quake-monitoring'' ''f:\\\\iceland-quake-monitoring-leaflet'' /E /XD node_modules dist __pycache__ .git venv .pytest_cache .vs; Write-Host ''Done''\")"
+      "Bash(powershell -Command \"robocopy ''f:\\\\iceland-quake-monitoring'' ''f:\\\\iceland-quake-monitoring-leaflet'' /E /XD node_modules dist __pycache__ .git venv .pytest_cache .vs; Write-Host ''Done''\")",
+      "Bash(find C:UsersfhmsaDownloads -type f \\\\\\(-name *.tex -o -name *.pdf -o -name *.docx \\\\\\))",
+      "Bash(ls -lh \"C:\\\\Users\\\\fhmsa\\\\Downloads/MPGV_Monitor_Project_Documentation\"/*.*)",
+      "Bash(ls -lh \"C:\\\\Users\\\\fhmsa\\\\Downloads/MPGV_Monitor_Project_Documentation\"*.pdf)",
+      "WebFetch(domain:skemman.is)",
+      "WebFetch(domain:uni.hi.is)",
+      "WebFetch(domain:gitlab.com)",
+      "WebFetch(domain:www.overleaf.com)",
+      "WebSearch",
+      "WebFetch(domain:hraun.vedur.is)",
+      "Bash(xargs cat:*)",
+      "Bash(grep -E '\\\\.\\(env|db|pem|key|pfx\\)$|__pycache__|\\\\.pyc$|node_modules|venv')",
+      "Bash(grep -r \"secret\\\\|password\\\\|api.key\\\\|token\\\\|credential\" /f/iceland-quake-monitoring-leaflet/backend/*.py --ignore-case)",
+      "Bash(grep -ri \"api.key\\\\|api_key\\\\|secret\\\\|password\\\\|auth\\\\|token\" /f/iceland-quake-monitoring-leaflet/backend/*.py)",
+      "Bash(grep -r AIzaSy f:/iceland-quake-monitoring-leaflet --include=*.js --include=*.jsx)"
     ]
   }
 }

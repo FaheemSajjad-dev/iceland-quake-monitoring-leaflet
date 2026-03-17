@@ -1,3 +1,5 @@
+Documentation page numbering
+
 Update screenshots and their captions in documentation
 
 deployment of webapp on local server and a proper host 
