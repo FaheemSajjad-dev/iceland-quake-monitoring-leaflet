@@ -12,3 +12,9 @@ rate limiting (not applied yet) --------------------------
                                                             |
 map layers discussion with MET office --------------------
 
+marker rendering performance (~297 MB, slow pan/zoom locally)
+  - currently ~1800 DOM markers (L.divIcon, one SVG per quake)
+  - fix: switch to L.circleMarker (canvas-based, single paint call)
+  - trade-off: squares become circles, colours/sizes stay the same
+  - discuss with supervisor before changing
+
