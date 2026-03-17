@@ -19,6 +19,7 @@ frontend/.vite/
 
 # VS files
 .vs/
+.claude/
 
 # OS
 .DS_Store

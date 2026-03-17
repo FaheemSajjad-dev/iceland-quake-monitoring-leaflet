@@ -271,19 +271,20 @@ const GridOverlay = ({ show, isDarkMode, mapType }) => {
 
 const quakeKey = (q) => `${q["Date-time"]}_${q.Latitude}_${q.Longitude}`;
 
-const makeQuakeIcon = (px, color, isSelected) => {
-  const activePx = isSelected ? px + 4 : px;
-  const svgInner = isSelected
-    ? `<rect x="3" y="3" width="18" height="18" fill="${color}" stroke="#ffffff" stroke-width="2"/>`
-    : `<rect x="4" y="4" width="16" height="16" fill="${color}"/>`;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${activePx}" height="${activePx}">${svgInner}</svg>`;
-  const half = Math.round(activePx / 2);
-  return L.divIcon({ className: "", html: svg, iconSize: [activePx, activePx], iconAnchor: [half, half] });
-};
+const getQuakeMarkerStyle = (px, color, isSelected) => ({
+  radius: Math.max(4, (isSelected ? px + 4 : px) / 2),
+  fillColor: color,
+  fillOpacity: 1,
+  stroke: isSelected,
+  color: "#ffffff",
+  weight: isSelected ? 2 : 0,
+  opacity: 1,
+});
 
 const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMarkerClick, visible }) => {
   const map = useMap();
   const layerGroupRef = useRef(null);
+  const rendererRef = useRef(null);
   const markersMapRef = useRef(new Map());
   const prevSelectedRef = useRef(null);
   const selectedEqRef = useRef(selectedEarthquake);
@@ -292,9 +293,14 @@ const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMar
   markerIconsRef.current = markerIcons;
 
   useEffect(() => {
+    rendererRef.current = L.canvas();
     const lg = L.layerGroup().addTo(map);
     layerGroupRef.current = lg;
-    return () => { map.removeLayer(lg); layerGroupRef.current = null; };
+    return () => {
+      map.removeLayer(lg);
+      layerGroupRef.current = null;
+      rendererRef.current = null;
+    };
   }, [map]);
 
   useEffect(() => {
@@ -323,11 +329,13 @@ const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMar
         quake.Longitude === sel.Longitude;
 
       const { px, color } = markerIcons[index] || {};
-      const icon = makeQuakeIcon(px, color, isSelected);
-
-      const marker = L.marker([lat, lng], { icon, zIndexOffset: 10 })
+      const marker = L.circleMarker([lat, lng], {
+        ...getQuakeMarkerStyle(px, color, isSelected),
+        renderer: rendererRef.current,
+      })
         .on("click", (e) => { L.DomEvent.stopPropagation(e); onMarkerClick(quake); })
         .addTo(lg);
+      if (isSelected) marker.bringToFront();
 
       markersMapRef.current.set(quakeKey(quake), { marker, quake, index });
     });
@@ -337,16 +345,19 @@ const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMar
     const prev = prevSelectedRef.current;
     prevSelectedRef.current = selectedEarthquake;
 
-    const updateIcon = (quake, isSelected) => {
+    const updateMarker = (quake, isSelected) => {
       if (!quake) return;
       const entry = markersMapRef.current.get(quakeKey(quake));
       if (!entry) return;
       const { px, color } = markerIconsRef.current[entry.index] || {};
-      entry.marker.setIcon(makeQuakeIcon(px, color, isSelected));
+      entry.marker.setStyle(getQuakeMarkerStyle(px, color, isSelected));
+      entry.marker.setRadius(Math.max(4, (isSelected ? px + 4 : px) / 2));
+      if (isSelected) entry.marker.bringToFront();
+      else entry.marker.bringToBack();
     };
 
-    updateIcon(prev, false);
-    updateIcon(selectedEarthquake, true);
+    updateMarker(prev, false);
+    updateMarker(selectedEarthquake, true);
   }, [selectedEarthquake]);
 
   return null;
