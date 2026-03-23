@@ -190,7 +190,7 @@ const GridOverlay = ({ show, isDarkMode, mapType }) => {
       gridRef.current.push(
         L.marker([lat, lng], {
           icon: L.divIcon({
-            className: "",
+            className: "grid-label-icon",
             html: `<span style="color:${color};font-size:${size};font-weight:${fontWeight};white-space:nowrap;pointer-events:none;">${text}</span>`,
             iconSize: [80, 16],
             iconAnchor: [0, 8],

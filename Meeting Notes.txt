@@ -1,5 +1,7 @@
 Documentation page numbering
 
+Recreate diagrams (Figure 10n and onwards)
+
 Update screenshots and their captions in documentation
 
 deployment of webapp on local server and a proper host 

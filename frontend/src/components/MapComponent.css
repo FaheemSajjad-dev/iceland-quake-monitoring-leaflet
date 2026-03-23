@@ -286,6 +286,11 @@
   font-size: 10px;
 }
 
+/* Grid label markers must not intercept mouse events — lets clicks/cursor pass through to earthquake canvas markers below */
+.grid-label-icon {
+  pointer-events: none !important;
+}
+
 /* Align scale bar bottom with the volcano/grid toggles (bottom: 39px); right matches left components (20px) */
 .leaflet-bottom.leaflet-right .leaflet-control-scale {
   margin-bottom: 29px; /* Leaflet adds ~10px default bottom padding → 10 + 29 = 39px */
