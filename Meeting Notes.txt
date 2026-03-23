@@ -1,4 +1,4 @@
-Documentation page numbering
+Documentation page numbering (center top in footer)
 
 Recreate diagrams (Figure 10n and onwards)
 
