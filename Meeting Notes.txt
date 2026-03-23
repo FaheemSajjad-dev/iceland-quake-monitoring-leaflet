@@ -1,8 +1,4 @@
-Documentation page numbering (center top in footer)
-
-Recreate diagrams (Figure 10n and onwards)
-
-Update screenshots and their captions in documentation
+Read and verify test .tex, if test .tex is ok, then change it with regular .tex
 
 deployment of webapp on local server and a proper host 
 
@@ -24,3 +20,17 @@ marker rendering performance (~297 MB, slow pan/zoom locally)
   - result: improved marker rendering quality, smoother pan/zoom behaviour, and faster overall map rendering
 
 .md files and documentation still have square marker version
+--------------------------------------------------------------------------
+font families in thesis documentation (Test_MPGV Monitor.tex):
+  - entire document uses Latin Modern font suite (loaded via \usepackage{lmodern})
+  - three faces in use:
+      LM Roman (serif)   → body text, headers/footers, table cells, captions
+      LM Sans (sans)     → all section/subsection/subsubsection headings, title page elements
+      LM Mono (typewriter) → inline code (\texttt / \code), all 22 verbatim code blocks
+  - inline code examples: react-leaflet, hraun.vedur.is, scrape.py, L.divIcon, gunicorn, etc. (~75+ uses of \texttt)
+  - \code{} custom command is just an alias for \texttt (defined line 82)
+  - \textbf used ~28 times (table headers, key terms)
+  - \emph / \textit used ~14 times (emphasis, Latin terms, quotes)
+  - \highlight used for colour only (FireBrick), no font change
+  - minted package is loaded but never used — all code blocks use verbatim instead
+  - extra space after full stops was LaTeX inter-sentence spacing, fixed with \frenchspacing (line 86)

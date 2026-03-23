@@ -1,0 +1,252 @@
+% BLAÐSÍÐU- OG LETURSTÆRÐ, SPÁSSÍUR, MÁLSGREINAR
+\documentclass[12pt]{article}    % Hægt að nota 10 pt, 11 pt, report, book
+\usepackage[a4paper]{geometry}   % Eða t.d. a3paper, letterpaper
+  \geometry{margin=2.2cm}        % Eða left, right, top, bottom, 
+  % vmargin, hmargin
+\usepackage[skip=0.8em]{parskip} % Bil milli málsgreina, og ekki inndregnar
+
+% FYRIR FONTA OG ÍSLENSKU
+\usepackage{fourier}          % Fallegri fontar en sá sjálfgefni, sér í
+                              % lagi í formúlum (aðrir möguleikar eru 
+                              % \usepackage[nott]{kpfonts}) og fyrir
+                              % sans-serif letur \usepackage{cmbright}
+\usepackage[utf8]{inputenc}   % Til íslenska o.fl. í inntaksskrá lesist rétt
+\usepackage[T1]{fontenc}      % Til að íslenska o.fl. prentist rétt í pdf-skrá
+\usepackage[icelandic]{babel} % Gefur t.d. "Mynd xx" undir myndir og skiptir 
+                              % orðum rétt milli lína. Telja má upp fleiri
+                              % tungumál, með kommum á milli og þá er skipt
+                              % á milli í skjalinu með \setlanguage{mál}
+\usepackage{microtype}        % betri bil milli stafa, m.a. jafnari hægri brún
+
+% LITIR
+\usepackage[svgnames]{xcolor} % Gefur sömu litanöfn og HTML, css og Matplotlib.
+                              % Með [x11names] má fá enn fleiri liti, sbr. R 
+                              % (ggplot2). Litina má skoða í kafla 4.3 í xcolor 
+                              % handbókinni (gúglið xcolor pdf)
+
+% FYRIRSAGNIR
+\usepackage{titlesec}                      % Stjórn kaflafyrirsagna
+\titlespacing{\section}{0ex}{*3}{*1}       % Bil framan kaflanúmers 0pt, ofan 
+\titlespacing{\subsection}{0ex}{*3}{*1}    % fyrirsagna 3ex og neðan þeirra 1ex
+\titlespacing{\subsubsection}{0ex}{*3}{*1} % með smá teygju (1ex ≈ 0.4em)
+\titlelabel{\thetitle\hspace{0.6em}}       % Bil á eftir kaflanúmeri
+% ATH. Sjálfgefið er {0ex}{*3.5}{*2.3} fyrir \section, {0ex}{*3.25}{*1.5}
+% fyrir hinar tvær og 1em fyrir bil á eftir. Með \usepackage[compact]{titlesec} 
+% verður sjálfgefið {*1}{*1} fyrir allar þrjár. Svo má stilla font og lit 
+% fyrirsagnar, t.d. með \titleformat*{\section}{\Large\bfseries\color{DarkBlue}}
+
+% MYNDIR OG FORRIT
+\usepackage{graphicx}         % Fyrir myndir
+\usepackage{minted}           % Fyrir forrit. Nokkrir (ekki of litríkir) stílar
+  \usemintedstyle{friendly}   % eru vs, friendly, tango, trac, borland, bw
+
+% STÆRÐFRÆÐIFORMÚLUR
+\usepackage[leqno]{mathtools} % Bætir mörgu gagnlegu við stærðfræðiformúlur
+\usepackage{xfrac}            % Svo má nota sfrac til að fá 1/2, 2/3 o.s.frv.
+\usepackage{nicefrac}         % Aðeins öðruvísi brot
+
+% BETRI TÖFLUR OG LISTAR
+\usepackage{booktabs}         % Fyrir betri töflur
+\usepackage{caption}          % M.a. aukabil á undan töflufyrirsögnum
+  \captionsetup{font=small,   % Smærra letur á mynda- og töflutexta,
+                labelfont=bf, % "Mynd 1" og "Tafla 2" feitletrað 
+                margin=2cm}   % Viðbótarspássíur á mynda- og töflutexta
+\usepackage{siunitx}          % Virkjar m.a. S-jöfnun í töflum
+\sisetup{output-decimal-marker={,}} % Tugabrot með kommu, t.d. 5,37 í stað 5.37
+\usepackage[shortlabels]{enumitem} % Fyrir betri lista, t.d. a) b)...
+  \setlist{nosep,             % Einfalt línubil í listum  
+          topsep=-.5\parskip} % Það er smálús í samtvinnun parskip og enumitem
+
+% TENGLAR          x<x  
+\usepackage{hyperref}         % Fyrir tengla
+  \hypersetup{colorlinks,     % Ef sleppt þá allir tenglar svartir
+            linkcolor=Indigo, % tilvísun innan skjals
+            citecolor=Indigo, % – í heimildaskráhttps://www.overleaf.com/project/607851adb12f15271592fea3
+            urlcolor=Indigo}  % – út á netið
+
+\author{Setjið inn höfund hér}
+\date{Setjið inn mánuð og ár hér}
+
+% ================= HÉR ENDAR SNIÐMÁTIÐ =======================
+
+% Gefa dæmi um skilgreiningu nýrrar skipunar:
+\newcommand{\rautt}[1]{\textcolor{FireBrick}{#1}}  % [1] er fjöldi stika
+ 
+% Sýna leið til að breyta leturgerð og -stærð og línubili í fyrirsögn skjals:
+\title{\textbf{\Huge Latex sýnishorn}\vspace{-1em}} 
+\author{Kristján Jónasson\\Stærðfræði og reiknifræði}
+\date{Vorið 2021}
+
+\begin{document}
+
+\maketitle
+
+\section{Um alheiminn}  % Með \documentclass{report} notar maður líka \chapter
+Til er kenning sem segir að ef einhver muni uppgötva námkvæmlega til hvers heimurinn er og af hverju hann er hér þá muni hann hverfa samstundis og í staðinn komi eitthvað enn skrýtnara. Til er önnur kenning sem segir að þetta hafi þegar gerst.\cite{adams1995hitchhiker}
+
+Hér kemur svo ný málsgrein.
+%
+\begin{figure}[h!]  % h=helst hér (here) og h!=endilega hér. t=top, b=bottom
+    \centering
+    \includegraphics[width=0.8\textwidth]{eldgos.jpg}
+    \caption{Eldgosið}
+    \label{mynd:eldgos}
+\end{figure}
+
+\section{Latex-sýnishorn}
+\subsection{Ýmis atriði}
+\textit{Skáletur}, \textbf{feitletur} \texttt{ritvélaletur}, \textcolor{MediumBlue}{blátt letur} og \rautt{rautt letur}. Hér er ,,texti innan gæsalappa``. Sérstök Latex tákn má setja inn (með ritvélaletri) með \texttt{verb} svona: \verb:&%$#_{}~^\: og fyrir sjö fyrstu má nota \verb:\:, t.d. \$300, 50\%, Brauð \& Co. Hér er dæmi þar sem skipta þarf orði milli lína því það er svo langt: vaðlaheiðarvegavinnuverkfærageymsluskúraútidyralykill. Hér eru tilvísanir í mynd, kafla og jöfnu: sjá mynd \ref{mynd:eldgos}, kafla \ref{kafli:nidurstada} og jöfnu (\ref{eq:rpol}). Og hér er tengill: \href{https://en.wikipedia.org/wiki/Universe}{Alheimurinn á Wikpediu}, og url: \url{http://hi.is}.
+
+Langt strik: Á árunum 2013--2017 gerðist ýmislegt.
+Formúlur: $x_3 = \sqrt{x_1^2 + x_2^2}$ og á sér línu:
+%
+$$  % Takið eftir % á línunni að ofan. Alveg auð lína mundi gefa greinaskil
+\text{Rúmmál kúlu} = \frac{4\pi r^3}{3}
+$$  % oft er notað \[ og \] utan um svona jöfnur í stað $$ og $$
+
+\subsection{Listar}
+Kúlulisti (bullet list):
+%https://www.overleaf.com/project/607851adb12f15271592fea3
+\begin{itemize}
+    \item Fyrsta atriði
+    \item Annað atriði
+\end{itemize}
+%
+tölusettur listi:
+\begin{enumerate}
+    \item Fyrsta atriði
+    \item Annað atriði
+    \begin{enumerate}[1.]
+        \item undiratriði 1
+        \item undiratriði 2
+    \end{enumerate}
+\end{enumerate}
+%
+og það má líka merkja með bókstöfum:
+%
+\begin{enumerate}[a)]
+    \item Fyrsta atriði
+    \item Annað atriði
+\end{enumerate}
+
+\subsection{Forrit}
+Hér er dæmi um listun forrits með pakkanum \textit{minted}, en eldri pakki sem litar ekki, dugar ekki á utf-8 stafi og notar öðruvísi (og e.t.v. verri) font er \textit{listings}.
+% Ath. Minted pakkinn dugar í Overleaf en á eigin tölvu þarf að maður að
+% vera með bæði Python og Pygments (sem fylgir oft með Python), og svo
+% þarf -shell-escape að vera með þegar latex eða pdflatex skipun er gefin.
+% Svo má fá forrit án "syntax highlighting" með verbatim.
+\begin{quote}           % dregur inn línur
+\begin{minted}{python}
+def gera_tvisvar(f):
+    '''framkvæmir f tvisvar'''
+    f()
+    f()
+def bulla():
+    '''skrifar "bull"'''
+    print("bull")
+b = bulla         # b er fallbreyta
+gera_tvisvar(b)   # prentar bull tvisvar
+\end{minted}
+\end{quote}
+
+\subsection{Ljóð}
+\begin{verse}
+\textrm{RAUN VÍSINDA} \\[.3em]  % 1 em er u.þ.b. hæð textalínu
+Raun vísinda:\\
+Stofnun háskólans.\\
+\hspace{4em}{\footnotesize Dagur Sigurðarson}
+\end{verse}
+
+\subsection{Tafla}
+Hér er dæmi um töflu með fjórum dálkum, vinstri jöfnuðum, miðjuðum, kommujöfnuðum og miðjuðum sem blokk og loks hægri jöfnuðum.
+%
+\begin{table}[ht!]  % hér! sbr. figure að ofan
+    \centering
+    \caption{Gengi 8. apríl 2021. Upplýsingarnar í þessari töflu eru fengnar af vef Landsbankans og vef Seðlabanka Íslands.}
+    \sisetup{group-separator={.}} % bil er sjálfgefið
+    \begin{tabular}{lcS[table-format=3.3]r} % 3.3 = max ###.###
+        \toprule  % Ath slaufusviga utan um titil á S-dálki
+        Gjaldmiðill & Skst & {Meðalgengi} & Sölugengi \\
+        \midrule
+        Króna         & ISK  & 1    & 1000 \\
+        Evra          & EUR  & 151,9  & 6,57 \\
+        Sterlingspund & GBP  & 175,29 & 5,69 \\
+        Dollari       & USD  & 127,79 & 7,82 \\
+        Dönsk króna   & DKK  & 20,421 & 32\,248,86 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+%
+\section{Fleiri stærðfræðiatriði}
+\subsection{Leiðir til að setja jöfnur á sér línur} 
+Tölusettar :
+%
+\begin{equation} \label{eq:pytha}
+    a^2 + b^2 = c^2
+\end{equation}
+%
+Fleiri jöfnur saman, miðjaðar (jafna (\ref{eq:rpol}) er afleiðing af jöfnu (\ref{eq:pytha})):
+%
+\begin{gather}
+    \label{eq:rpol}
+    r = \sqrt{x^2 + y^2} \\               % \\ til að fara í næstu línu
+    \theta = \operatorname{arctan2}(y,x)  % latex þekkir ekki atan2
+\end{gather}
+%
+Fleiri jöfnur saman, standast á við =-merki:
+\begin{align*}  % stjarnan til að sleppa tölusetningu 
+    r &= \sqrt{x^2 + y^2} \\
+    \theta &= \operatorname{arctan2}(y,x)
+\end{align*}  % líka má nota * með gather og equation
+%
+\subsection{Summur og fleira}
+Summa:
+$$
+\sum_{k=1}^m k=\frac{m(m+1)}{2}
+$$
+Heildi og ýmis (misflókin og misflott) brot:
+$$
+\int_0^1 x^2 dx = \nicefrac{1}{3} = \text{\large{\sfrac{1}{3}}} 
+= \tfrac{1}{3} = 1\big/3 = \frac{1}{3}
+$$
+Markgildi:
+$$
+\lim_{x \to 0}\frac{\sin x}{x} = 1  % Án \ túlkast sin sem margfeldið s·i·n
+$$
+Mengjatákn:
+\begin{gather*}
+x \in (A \cup B) \cap C 
+\text{ og } y \in \big\{1,2,3,4\big\} \\
+M \subseteq\mathbb{R}^+ \text{ og } M \neq \emptyset
+\end{gather*}
+Gríska stafrófið:
+\begin{gather*}
+\alpha, \beta, \gamma, \delta, \epsilon, \varepsilon, \zeta, \eta, \theta, \iota, \kappa, \lambda, \mu, \nu, \xi, o, \pi, \rho, \sigma, \tau, \upsilon, \theta, \phi, \varphi, \chi, \psi, \omega \\
+\Gamma, \Delta, \Theta, \Lambda, \Xi, \Pi, \Sigma, \Phi, \Psi, \Omega.
+\end{gather*}
+
+\subsection{Fylki og vigrar}
+$$
+Ax = \begin{pmatrix}  % p fyrir parentheses
+1 & 2\\
+3 & 4
+\end{pmatrix}
+\begin{pmatrix} 5\\6 \end{pmatrix}
+= \begin{bmatrix}  % b fyrir brackets
+1 & 2\\
+3 & 4
+\end{bmatrix}
+\begin{bmatrix} 5\\6 \end{bmatrix}
+$$
+
+\section{Niðurstaða} % Sýnir hver m.a. hvernig stinga má inn
+% inn enskum texta, og enskar gæsalappir.
+\label{kafli:nidurstada}
+\begin{otherlanguage}{english}
+``I always thought something was fundamentally wrong with the universe'' \cite{adams1995hitchhiker}. Internationalization is a long word that needs to be hyphenated.
+\end{otherlanguage}
+
+%% HEIMILDASKRÁ
+\bibliographystyle{plain}
+\bibliography{heimildir.bib}
+\end{document}
