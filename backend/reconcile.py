@@ -66,8 +66,7 @@ def match_and_merge(start_utc, end_utc, min_mag=2.7):
         n_v_only = 0
         for v in v_rows:
             # try ±2 seconds around v.date_time (enforces |Δt| ≤ 2s)
-            vt = v.date_time  # 'YYYY-MM-DD HH:MM:SS'
-            # build nearby seconds strings
+            vt = v.date_time
             base = datetime.strptime(vt, "%Y-%m-%d %H:%M:%S")
             secs = [(base + timedelta(seconds=delta)).strftime("%Y-%m-%d %H:%M:%S") for delta in (-2, -1, 0, 1, 2)]
 
@@ -86,7 +85,6 @@ def match_and_merge(start_utc, end_utc, min_mag=2.7):
                     candidates.append((dist, dt_abs, dm, s))
 
             if len(candidates) == 0:
-                # v_only
                 m = EarthquakeMerged(
                     date_time=v.date_time,
                     latitude=v.latitude,

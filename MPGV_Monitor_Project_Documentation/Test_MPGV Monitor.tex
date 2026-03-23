@@ -21,8 +21,6 @@
 \titleformat{\subsection}{\large\sffamily\bfseries}{\thesubsection}{0.6em}{}
 \titleformat{\subsubsection}{\normalsize\sffamily\bfseries}{\thesubsubsection}{0.6em}{}
 \usepackage{graphicx}
-\usepackage{minted}
-\usemintedstyle{friendly}
 \usepackage[leqno]{mathtools}
 \usepackage{xfrac}
 \usepackage[nice]{nicefrac}
@@ -64,15 +62,15 @@
     \renewcommand{\footrulewidth}{0pt} % Remove footer rule
 }
 
-\usepackage[a4paper]{geometry}
-\geometry{margin=2.5cm}
 \usepackage{tikz}
 \usetikzlibrary{shapes.geometric, arrows, arrows.meta, positioning}
 
-\tikzstyle{startstop} = [rectangle, rounded corners, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=red!30]
-\tikzstyle{process} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, draw=black, fill=blue!30]
-\tikzstyle{decision} = [diamond, minimum width=3cm, minimum height=1cm, text centered, draw=black, fill=green!30]
-\tikzstyle{arrow} = [thick,->,>=stealth]
+\tikzset{
+    startstop/.style={rectangle, rounded corners, minimum width=3cm, minimum height=1cm, text centered, draw=black, fill=red!30},
+    process/.style={rectangle, minimum width=3cm, minimum height=1cm, text centered, draw=black, fill=blue!30},
+    decision/.style={diamond, minimum width=3cm, minimum height=1cm, text centered, draw=black, fill=green!30},
+    arrow/.style={thick,->,>=stealth}
+}
 
 % HÍ brand colour (official corporate design)
 \definecolor{hiblue}{RGB}{16,9,159}
@@ -204,8 +202,7 @@ Faculty of Industrial Engineering, Mechanical Engineering and Computer Science \
 School of Engineering and Natural Sciences \\
 University of Iceland \\
 Dunhagi 5 \\
-107, Reykjavik
-Iceland \\
+107, Reykjavik, Iceland \\
 Telephone: 525 4000 \\ \\
 
 \vspace*{\lineskip}
@@ -317,7 +314,7 @@ Meginframlag þessa verkefnis er samræmd, gæðastýrð jarðskjálftaskrá og 
 
 \begin{tabular}{@{}ll}
 API   & Application Programming Interface \\
-CARTO & CARTO (CartoDB) — cloud-based geospatial platform \\
+CARTO & CARTO (CartoDB) which is cloud-based geospatial platform \\
 CSS   & Cascading Style Sheets \\
 CSV   & Comma-Separated Values \\
 DBSCAN & Density-Based Spatial Clustering of Applications with Noise \\
@@ -492,9 +489,6 @@ The move to a Vite + React frontend and a lightweight Flask API backend resolved
 \subsection{Data Sources}
 The \textbf{MPGV Monitor} system integrates multiple authoritative datasets to construct a unified and reliable earthquake catalogue for Iceland. In earlier versions of the project, the only data source was the Icelandic Meteorological Office’s HTML-based MPGV archive (\href{http://hraun.vedur.is/ja/Mpgv/}{hraun.vedur.is}), which contains monthly tables of date-time, location, depth, and magnitude values. Although the structure of the MPGV pages is predictable and suitable for automated scraping, relying solely on this source limited temporal resolution and restricted the system’s ability to incorporate higher-frequency seismic data.
 
-\vspace{8\baselineskip}
-
-
 \begin{figure}[H]
 
     \centering    \includegraphics[width=\linewidth, height=8cm]{Screenshots/hraun_vedur.png}
@@ -621,6 +615,9 @@ On the other hand, several issues emerged as the dataset grew. Maintaining synch
 
 \centering    \includegraphics[width=0.3\textwidth, height=12cm]{Screenshots/CSV-based solution.png}
 
+\caption{Flowchart of the CSV-based scraping and storage approach.}
+\label{fig:csv-flowchart}
+
 \end{figure}
 
 The CSV-based solution therefore formed an important intermediate step: it demonstrated that the full MPGV archive could be harvested automatically and analysed as a coherent dataset, while highlighting the need for a database-backed backend that could handle concurrent access and automated updates.
@@ -673,6 +670,9 @@ The overall workflow of the current pipeline can be summarised as a recurring mu
 
 \centering    \includegraphics[width=0.3\textwidth, height=12cm]{Screenshots/Data_pipeline.png}
 
+\caption{Multi-source ingestion and merging workflow of the current data pipeline.}
+\label{fig:data-pipeline}
+
 \end{figure}
 
 In the deployed system, the unified catalogue is exposed to the React frontend through RESTful API endpoints and rendered on an interactive Leaflet-based map. The design choice to separate ingestion, reconciliation, and delivery into distinct stages makes it easier to evolve each component independently. For example, additional data sources or alternative matching strategies can be incorporated without changing the general flow from raw source tables to a merged, visualisation-ready dataset. Similarly, the recent migration of the frontend rendering layer from Google Maps to Leaflet required no modifications to the data pipeline or API contracts.
@@ -698,6 +698,7 @@ At a high level, the backend operates through several interconnected layers, ill
 \centering    \includegraphics[width=\linewidth, height=12cm]{Screenshots/MPGV_sys_arc.png}
 
 \caption{Full system architecture of MPGV Monitor, showing external data sources, ingestion modules, database tables, reconciliation pipeline, API layer, and frontend.}
+\label{fig:system-architecture}
 
 \end{figure}
 
@@ -852,7 +853,7 @@ The choice of a three-minute interval reflects a compromise between data freshne
 
 The \texttt{max\_instances=1} parameter is critical from a reliability perspective. It guarantees that a new scheduler run is not started while the previous one is still active, thereby avoiding overlapping writes and potential race conditions. Each scheduled execution of \texttt{scheduled\_scrape} performs a full pass of the pipeline: MPGV scraping, Skjálftalísa fetching, reconciliation into the merged table, and optional ShakeMap validation.
 
-In the current deployment, where the entire historical catalogue from June~2020 has already been ingested, many scheduler cycles log messages such as \enquote{\texttt{:)\ 0 new earthquake records added to SQLite via Flask.}} followed by \enquote{\texttt{Merged rows written:1753}}. This behaviour illustrates that the pipeline is idempotent: the job can be re-run safely even when no new events are available, and the content of the merged table remains stable. When new earthquakes are published by the Icelandic Meteorological Office, the same mechanism automatically incorporates them into both the MPGV table and the unified catalogue.
+In the current deployment, where the entire historical catalogue from June~2020 has already been ingested, many scheduler cycles log messages such as \enquote{\texttt{:)\ 0 new earthquake records added to SQLite via Flask.}} followed by \enquote{\texttt{Merged rows written:1781}}. This behaviour illustrates that the pipeline is idempotent: the job can be re-run safely even when no new events are available, and the content of the merged table remains stable. When new earthquakes are published by the Icelandic Meteorological Office, the same mechanism automatically incorporates them into both the MPGV table and the unified catalogue.
 
 From an architectural viewpoint, the scheduler runs as a background component alongside the Flask application. HTTP endpoints such as \texttt{/earthquakes}, \texttt{/volcanoes}, and \texttt{/shakemap/\{dt\}} remain responsive while ingestion is in progress. Because the ingestion and reconciliation steps operate within database transactions, partial failures (for example, a temporary API outage) do not corrupt existing tables: exceptions are caught and logged, and the next scheduled cycle resumes from a clean state.
 
@@ -890,6 +891,7 @@ At runtime, the system loads all Skjálftalísa detections into a time-indexed s
 \centering    \includegraphics[width=\linewidth, height=20cm]{Screenshots/Reconciliation workflow.png}
 
 \caption{Reconciliation workflow with branching logic and compact layout.}
+\label{fig:reconcile-workflow}
 
 \end{figure}
 
@@ -924,6 +926,8 @@ for v in v_rows:
 \end{verbatim}
 
 Because the reconciliation outcome is recorded in the \texttt{status} field and both MPGV and Skjálftalísa identifiers are kept, every match can be audited after the fact. If the thresholds turn out to be too tight or too loose, the algorithm can be re-tuned and the merge re-run without losing any raw data.
+
+In addition to \texttt{matched} and \texttt{v\_only}, the database schema also supports a \texttt{s\_only} status for Skjálftalísa detections that have no corresponding MPGV event. These records are stored in the merged table for completeness but are not served to the frontend by default, since they lack the curated magnitude values that MPGV provides. The \texttt{s\_only} events remain available for research queries and can be included in API responses if needed in the future.
 
 \subsection{ShakeMap Validation Pipeline}
 \label{subsec:shakemap}
@@ -973,7 +977,7 @@ executes the ingestion, reconciliation, and ShakeMap matching workflow for the e
     \item long-term trends in ShakeMap availability.
 \end{itemize}
 
-A representative audit performed on the full catalogue of 1753 merged events produced the distribution shown in Table~\ref{tab:shakemap-audit}. In this run, 465 events successfully matched to a valid ShakeMap, 351 events returned candidates that did not satisfy the threshold criteria, and 937 events resulted in errors due to missing metadata or failed EPOS retrievals. ShakeMap coverage is patchy, only 465 out of 1753 events matched, so the system stores the failure reason rather than silently dropping unmatched events.
+A representative audit performed on the full catalogue of 1781 merged events produced the distribution shown in Table~\ref{tab:shakemap-audit}. In this run, 465 events successfully matched to a valid ShakeMap, 351 events returned candidates that did not satisfy the threshold criteria, and 965 events resulted in errors due to missing metadata or failed EPOS retrievals. ShakeMap coverage is patchy, only 465 out of 1781 events matched, so the system stores the failure reason rather than silently dropping unmatched events.
 
 \begin{table}[H]
 \centering
@@ -983,9 +987,9 @@ A representative audit performed on the full catalogue of 1753 merged events pro
 \hline
 valid          & 465 \\
 no\_valid      & 351 \\
-error          & 937 \\
+error          & 965 \\
 \hline
-\textbf{Total Events Audited} & 1753 \\
+\textbf{Total Events Audited} & 1781 \\
 \hline
 \end{tabular}
 \caption{ShakeMap audit summary produced by running 
@@ -1037,7 +1041,7 @@ def get_earthquake_data():
 
 Because the Flask application and the scheduler operate on the same SQLite database, all API calls always return the most up-to-date state of the catalogue without requiring additional scraping at request time. To reduce database load under repeated polling, the \texttt{/earthquakes} endpoint employs an in-memory response cache with a 60-second time-to-live (TTL). The cache is invalidated after each scheduled scrape cycle, ensuring that new data is available to clients within at most one minute of ingestion. Requests that include query parameters (such as \texttt{?days=NN}) bypass the cache to ensure accuracy.
 
-Because reads and writes never compete, the API only reads, the scheduler only writes, user queries stay fast even during an active scrape. The JSON response format is also simple enough that the frontend can render markers, overlays, and ShakeMap icons from lightweight requests. Optional gzip compression via Flask-Compress further reduces response payload sizes for clients that support it.
+Because API handlers are predominantly read-only while the scheduler handles writes, and SQLite's WAL mode permits concurrent readers alongside a single writer, user queries stay fast even during an active scrape. The JSON response format is also simple enough that the frontend can render markers, overlays, and ShakeMap icons from lightweight requests. Optional gzip compression via Flask-Compress further reduces response payload sizes for clients that support it.
 
 \subsection{Summary}
 
@@ -1144,7 +1148,7 @@ Heatmap   & CartoDB Dark Matter (no labels) + label pane & Free tier \\
 \caption{Frontend integration with the Leaflet mapping library, illustrating the open-source tile provider architecture that replaces the previous Google Maps API dependency.}
 \end{figure}
 
-Tile layer performance is optimized through several Leaflet-specific configuration options: \texttt{updateWhenZooming=false} prevents tile reloading during zoom animations, \texttt{keepBuffer=4} pre-loads surrounding tiles to reduce blank areas during panning, and \texttt{detectRetina=false} avoids doubled tile requests on high-DPI displays. The map is configured with \texttt{preferCanvas=true}, which routes marker rendering through the HTML5 Canvas API rather than SVG, providing 3--5$\times$ faster redraws when displaying thousands of earthquake markers.
+Tile layer performance is optimized through several Leaflet-specific configuration options: \texttt{updateWhenZooming=false} prevents tile reloading during zoom animations, \texttt{keepBuffer=4} pre-loads surrounding tiles to reduce blank areas during panning, and \texttt{detectRetina=false} avoids doubled tile requests on high-DPI displays. The map is configured with \texttt{preferCanvas=true}, which routes marker rendering through the HTML5 Canvas API rather than SVG, providing significantly faster redraws when displaying thousands of earthquake markers.
 
 \subsection{Backend Connection}
 \label{subsec:frontend_api_layer}
@@ -1322,7 +1326,7 @@ Marker icons      & \texttt{useMemo} on deps & Avoid per-render recalculation \\
 Tile loading      & \texttt{updateWhenZooming=false} & Smooth zoom, fewer blanks \\
 Tile buffering    & \texttt{keepBuffer=4} & Pre-loaded surrounding tiles \\
 Heatmap           & Rebuild on data/zoom only & Panning is free ($\sim$60\,FPS) \\
-Canvas rendering  & \texttt{preferCanvas=true} & 3--5$\times$ faster redraws \\
+Canvas rendering  & \texttt{preferCanvas=true} & Significantly faster redraws \\
 Zoom animation    & \texttt{zoomSnap=0.5} & Half-step snapping, smoother UX \\
 TimeWindow slider & Stable wheel handler via \texttt{useRef} & No listener re-registration \\
 \hline
@@ -1445,7 +1449,7 @@ These adjustments were minor individually, but collectively they made the differ
 % ============================ CHAPTER 8 ============================
 \section{Deployment, Testing \& Debugging}
 \subsection{Backend \& Frontend Testing}
-Extensive testing was carried out on both the backend and frontend. The backend test suite, executed via \texttt{python -m pytest tests/ -v}, includes 40 passing tests across five test files:
+Extensive testing was carried out on both the backend and frontend. The backend test suite, executed via \texttt{python -m pytest tests/ -v}, includes 41 passing tests across five test files:
 
 \begin{itemize}
     \item \texttt{test\_haversine.py}: 10 tests for the \texttt{haversine\_km()} pure function, covering identical points, threshold boundary behaviour, and real Iceland locations.
@@ -1672,7 +1676,7 @@ npm run dev
 
 \subsection*{Running Tests}
 
-Backend unit and integration tests (40 tests):
+Backend unit and integration tests (41 tests):
 \begin{verbatim}
 cd backend
 python -m pytest tests/ -v
@@ -1706,15 +1710,15 @@ The Flask backend exposes the following REST endpoints. All responses are JSON u
 \hline
 \textbf{Method} & \textbf{Endpoint} & \textbf{Parameters} & \textbf{Description} \\
 \hline
-GET & \texttt{/} & ,  & Returns a JSON message confirming the API is running. \\
+GET & \texttt{/} & --- & Returns a JSON message confirming the API is running. \\
 GET & \texttt{/earthquakes} & \texttt{?days=NN} (optional) & Returns the merged earthquake catalogue as a JSON array. Defaults to all events; \texttt{days} limits to the most recent \texttt{NN} days. Cached for 60\,s. \\
 GET & \texttt{/earthquakes\_csv} & \texttt{?days=NN} (optional) & Same data as \texttt{/earthquakes} but delivered as a downloadable CSV file. \\
-GET & \texttt{/volcanoes} & ,  & Returns EPOS volcano metadata (name, coordinates, elevation, last eruption). \\
-GET & \texttt{/health} & ,  & Row counts for the \texttt{earthquake}, \texttt{earthquake\_s\_raw}, and \texttt{earthquake\_merged} tables. \\
+GET & \texttt{/volcanoes} & --- & Returns EPOS volcano metadata (name, coordinates, elevation, last eruption). \\
+GET & \texttt{/health} & --- & Row counts for the \texttt{earthquake}, \texttt{earthquake\_s\_raw}, and \texttt{earthquake\_merged} tables. \\
 GET & \texttt{/shakemap\_lookup} & \texttt{dt}, \texttt{lat}, \texttt{lon} & Queries the EPOS ShakeMap API for a specific event and returns a viewer URL if a matching ShakeMap exists. \\
-GET & \texttt{/shakemap/<dt>} & ,  & Returns the cached ShakeMap status for events matching the given date-time string. \\
-POST & \texttt{/reconcile} & ,  & Manually triggers a full reconciliation pass over the entire catalogue. \\
-GET & \texttt{/scrape-volcanoes} & ,  & Manually triggers a volcano data refresh from the EPOS API. \\
+GET & \texttt{/shakemap/<dt>} & --- & Returns the cached ShakeMap status for events matching the given date-time string. \\
+POST & \texttt{/reconcile} & --- & Manually triggers a full reconciliation pass over the entire catalogue. \\
+GET & \texttt{/scrape-volcanoes} & --- & Manually triggers a volcano data refresh from the EPOS API. \\
 \hline
 \end{tabular}
 \caption{Summary of backend API endpoints.}

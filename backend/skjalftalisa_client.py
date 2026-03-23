@@ -73,8 +73,7 @@ def _normalize_time_to_utc_str(t_val) -> Optional[str]:
         dt = datetime.fromtimestamp(t_val, tz=timezone.utc)
         return _fmt_utc(dt)
     if isinstance(t_val, str):
-        # Try to parse common forms; if it already looks like 'YYYY-MM-DD HH:MM:SS', use as-is.
-        # We keep it simple: if parsing fails, return None.
+        # Try to parse common forms; return None on failure.
         try:
             if "T" in t_val:  # ISO-ish: 'YYYY-MM-DDTHH:MM:SSZ'
                 t_val = t_val.replace("Z", " ").replace("T", " ").strip()
