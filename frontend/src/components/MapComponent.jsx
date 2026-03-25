@@ -52,54 +52,60 @@ const getTwilightColorForDate = (isoString) => {
   return TWILIGHT_MONTH_COLORS[d.getUTCMonth()] || "#6a51a3";
 };
 
+// All tile layers now use Esri's ArcGIS REST CDN — the same infrastructure used
+// by the Icelandic Met Office's own Skjálftalísa app (esri-leaflet).
+// No API key required. Tile URL format: /MapServer/tile/{z}/{y}/{x}
 const TILE_LAYERS = {
   roadmap: {
-    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ",
     maxZoom: 19,
     maxNativeZoom: 19,
   },
   satellite: {
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    attribution: "Tiles &copy; Esri",
+    attribution: "Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics",
     maxZoom: 19,
-    maxNativeZoom: 17, // Esri World Imagery native cap; above 17 Leaflet up-scales existing tiles instead of requesting blank ones
+    maxNativeZoom: 17, // Esri World Imagery native cap; above 17 Leaflet up-scales existing tiles
   },
   dark_mode: {
-    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ",
     maxZoom: 19,
-    maxNativeZoom: 19,
+    maxNativeZoom: 16,
   },
 };
 
-// Shared tile options applied to every TileLayer — key for zoom smoothness
+// Shared tile options applied to every basemap layer — key for zoom smoothness.
+// esri-leaflet's basemapLayer() extends L.TileLayer, so all standard options apply.
 const TILE_PROPS = {
   updateWhenZooming: false, // do not fetch new tiles during CSS zoom animation; scaled copies of existing tiles are shown instead — eliminates blank tile flicker
   updateWhenIdle:    false, // fetch new tiles immediately after zoom/pan settles, not deferred (better on desktop)
   keepBuffer:        4,     // pre-load 4 extra tile rows in every direction — greatly reduces blank edges when panning or zooming
-  detectRetina:      false, // do not request 2× tiles (e.g. @2x via {r}); avoids over-requesting and potential blank tiles on retina screens where provider has no hi-res variant
+  detectRetina:      false, // do not request 2× tiles; avoids over-requesting on retina screens
 };
 
 const TileLayerManager = ({ mapType }) => {
   if (mapType === "heatmap") {
-    // Base terrain (no labels) → heatmap renders above this → labels on top
+    // Dark Gray Base (no labels) → heatmap canvas renders above → labels float on top.
+    // Esri Dark Gray Base + Reference is the Esri-native equivalent of the previous
+    // CARTO dark_nolabels + dark_only_labels sandwich, preserving heatmap layering.
     return (
       <>
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+          attribution="Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ"
           maxZoom={19}
-          maxNativeZoom={19}
+          maxNativeZoom={16}
           zIndex={1}
           {...TILE_PROPS}
         />
         <Pane name="heatmap-labels" style={{ zIndex: 650 }}>
           <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}.png"
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
             attribution=""
             maxZoom={19}
-            maxNativeZoom={19}
+            maxNativeZoom={16}
             {...TILE_PROPS}
           />
         </Pane>

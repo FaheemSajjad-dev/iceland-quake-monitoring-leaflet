@@ -65,7 +65,7 @@ Affected endpoints: `/scrape-volcanoes`, `/shakemap_lookup`.
 
 `frontend/index.html` now includes a CSP meta tag restricting:
 - Scripts and styles to `'self'` (plus `'unsafe-inline'` for Leaflet/React compatibility)
-- Images to `'self'`, `data:` URIs, and the three tile providers (OSM, Esri, CartoDB)
+- Images to `'self'`, `data:` URIs, and Esri's ArcGIS CDN only (`server.arcgisonline.com`, `services.arcgisonline.com`) — OSM and CartoDB removed since all layers now use Esri
 - API connections to `localhost:5001` / `127.0.0.1:5001`
 - Frames blocked entirely (`frame-ancestors 'none'`)
 

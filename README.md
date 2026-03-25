@@ -17,7 +17,7 @@ This is the **Leaflet clone** of the original Google Maps version — no API key
 | Layer | Technology |
 |---|---|
 | Frontend | React 18 + Vite, react-leaflet 4, leaflet.heat |
-| Map tiles | OpenStreetMap · Esri World Imagery · CartoDB Dark Matter |
+| Map tiles | Esri World Street Map · Esri World Imagery · Esri Dark Gray Canvas (all via `server.arcgisonline.com`) |
 | Backend | Python 3, Flask, SQLAlchemy, APScheduler |
 | Database | SQLite (WAL mode) |
 | Tests | pytest (backend) · Vitest + Testing Library (frontend) |
@@ -75,9 +75,9 @@ The **Heatmap** is the 4th map type, designed for density analysis rather than i
 
 | Component | Detail |
 |---|---|
-| Base tile | CartoDB Dark Matter (no-labels variant) |
+| Base tile | Esri Dark Gray Base (`World_Dark_Gray_Base`) — no-labels variant |
 | Heat overlay | `leaflet.heat` — count-based density with small magnitude boost |
-| Labels tile | CartoDB Dark Matter (labels-only) in a Leaflet `Pane` at z-index 650, rendered above the heat |
+| Labels tile | Esri Dark Gray Reference (`World_Dark_Gray_Reference`) in a Leaflet `Pane` at z-index 650, rendered above the heat |
 
 **Heatmap weight:** every earthquake counts equally (weight 1.0); events M 4–5 get a small boost (1.15) and M 5+ get 1.3 — density drives the visualization, not magnitude alone.
 
@@ -203,24 +203,28 @@ Key optimisations applied to the frontend:
 
 ---
 
-## Map Tile Licensing — Important for Production Deployment
+## Map Tile Licensing
 
-The three tile providers used in development have **usage restrictions** that must be resolved before this application is deployed as a public-facing production service.
+All four map layers (roadmap, satellite, dark mode, heatmap) now use **Esri's ArcGIS REST CDN** (`server.arcgisonline.com`) exclusively — the same tile infrastructure used by the Icelandic Met Office's own Skjálftalísa earthquake app.
 
-| Layer | Provider URL | Development use | Production requirement |
-|---|---|---|---|
-| Roadmap | `tile.openstreetmap.org` | Permitted for low-traffic testing | **Forbidden** for app distribution / heavy use per [OSM tile policy](https://operations.osmfoundation.org/policies/tiles/). Must use a CDN or self-hosted tiles. |
-| Satellite | `server.arcgisonline.com` (Esri) | Free for dev/personal | Requires an **Esri licence** for government / production use |
-| Dark Matter + Heatmap base | `basemaps.cartocdn.com` | Free tier with rate limits | Requires a **paid Carto plan** for production |
+| Layer | Esri service | Notes |
+|---|---|---|
+| Roadmap | `World_Street_Map` | Replaces OpenStreetMap direct (which is forbidden for production per OSM policy) |
+| Satellite | `World_Imagery` | Unchanged from previous version |
+| Dark mode | `World_Dark_Gray_Base` | Replaces CartoDB Dark Matter |
+| Heatmap base | `World_Dark_Gray_Base` | No-labels variant; heatmap renders above |
+| Heatmap labels | `World_Dark_Gray_Reference` | Labels-only, in a Leaflet Pane at z-index 650 |
 
-The underlying **geodata** (OpenStreetMap) is open under the ODbL licence and can be used freely — the restriction is only on the tile-serving CDN.
+No API key is required for the current `server.arcgisonline.com` public CDN endpoints. These endpoints have been stable for 10+ years and are widely used by universities and research institutions.
 
-### Recommended actions before handover to IMO
+### For production deployment at IMO
 
-1. **Check whether IMO already holds a basemap licence** — many national meteorological offices have agreements with Esri or a national mapping agency.
-2. **Use a licensed tile CDN** — [Stadia Maps](https://stadiamaps.com/) and [MapTiler](https://www.maptiler.com/) both offer straightforward government/research plans and provide OSM-based roadmap, satellite, and dark-theme tile styles.
-3. **Self-host OSM tiles** — if IMO prefers full independence, a Docker-based `osm-tile-server` stack can serve OSM tiles internally.
-4. **Swap tile URLs in one place** — all tile layer URLs are defined in the `TILE_LAYERS` constant in `frontend/src/components/MapComponent.jsx` (≈ line 55) and the two CartoDB URLs in `TileLayerManager` (≈ line 84). Swapping providers requires changing only those strings.
+Esri's public CDN endpoints are technically classed as non-commercial/evaluation use without an account. For a formally licensed deployment, one of the following is recommended:
+
+1. **Free ArcGIS Developer account** — register at [developers.arcgis.com](https://developers.arcgis.com), obtain a free API key (2 million tile requests/month free), and append `?token=YOUR_KEY` to the tile URLs. This legitimises usage under Esri's ToS at no cost.
+2. **IMO's own ArcGIS infrastructure** — IMO runs ArcGIS Server at `luk.vedur.is/arcgis/rest/services/`. If they provide a tile endpoint, swap the URLs in `TILE_LAYERS` in `MapComponent.jsx` (one string per layer).
+
+All tile URLs are defined in a single `TILE_LAYERS` constant in `frontend/src/components/MapComponent.jsx` (≈ line 56). Changing providers requires updating only those URL strings.
 
 The data APIs (`hraun.vedur.is`, `api.vedur.is`) are IMO's own services and require no licensing changes.
 
