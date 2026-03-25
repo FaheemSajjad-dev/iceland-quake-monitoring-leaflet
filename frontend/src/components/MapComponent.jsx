@@ -142,6 +142,21 @@ const MapClickHandler = ({ onClick }) => {
   return null;
 };
 
+// Leaflet registers a bubble-phase contextmenu listener on the map container
+// that calls preventDefault(), suppressing the browser's native right-click menu.
+// This component intercepts that event in the capture phase and calls
+// stopPropagation() so Leaflet's handler never runs, restoring the default menu.
+const ContextMenuEnabler = () => {
+  const map = useMap();
+  useEffect(() => {
+    const container = map.getContainer();
+    const handler = (e) => { e.stopPropagation(); };
+    container.addEventListener('contextmenu', handler, true);
+    return () => container.removeEventListener('contextmenu', handler, true);
+  }, [map]);
+  return null;
+};
+
 const GridOverlay = ({ show, isDarkMode, mapType }) => {
   const map = useMap();
   const gridRef = useRef([]);
@@ -284,7 +299,6 @@ const getQuakeMarkerStyle = (px, color, isSelected) => ({
 const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMarkerClick, visible }) => {
   const map = useMap();
   const layerGroupRef = useRef(null);
-  const rendererRef = useRef(null);
   const markersMapRef = useRef(new Map());
   const prevSelectedRef = useRef(null);
   const selectedEqRef = useRef(selectedEarthquake);
@@ -293,13 +307,11 @@ const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMar
   markerIconsRef.current = markerIcons;
 
   useEffect(() => {
-    rendererRef.current = L.canvas();
     const lg = L.layerGroup().addTo(map);
     layerGroupRef.current = lg;
     return () => {
       map.removeLayer(lg);
       layerGroupRef.current = null;
-      rendererRef.current = null;
     };
   }, [map]);
 
@@ -331,7 +343,6 @@ const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMar
       const { px, color } = markerIcons[index] || {};
       const marker = L.circleMarker([lat, lng], {
         ...getQuakeMarkerStyle(px, color, isSelected),
-        renderer: rendererRef.current,
       })
         .on("click", (e) => { L.DomEvent.stopPropagation(e); onMarkerClick(quake); })
         .addTo(lg);
@@ -594,7 +605,7 @@ const MapComponent = ({
         zoomAnimation={true}
         fadeAnimation={true}
         markerZoomAnimation={true}
-        preferCanvas={true}        // render markers on canvas — much faster redraws
+        preferCanvas={false}       // SVG renderer: right-click on markers shows normal browser context menu (canvas would show "Save image as")
         zoomSnap={0.5}             // snap to 0.5 zoom increments instead of integers — smoother steps
         zoomDelta={0.5}            // one scroll gesture = 0.5 zoom levels — prevents aggressive jumps
         wheelPxPerZoomLevel={60}   // default 60px per level; combined with zoomDelta=0.5 this means ~120px of scroll per full integer zoom
@@ -602,6 +613,7 @@ const MapComponent = ({
         <TileLayerManager mapType={mapType} />
         <MinZoomController mapType={mapType} />
         <MapReadyHandler />
+        <ContextMenuEnabler />
         <ScaleControl position="bottomright" />
         <GridOverlay show={showGrid} isDarkMode={isDarkMode} mapType={mapType} />
         <MapClickHandler onClick={handleMapClick} />

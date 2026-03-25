@@ -7,6 +7,10 @@
 /* Smooth tile fade-in on load — prevents tiles from popping in abruptly */
 .leaflet-tile {
   transition: opacity 0.15s linear;
+  /* Prevent the browser from treating tiles as interactive images.
+     Right-clicks fall through to the map container, which shows the
+     normal page context menu instead of "Save image as / Copy image". */
+  pointer-events: none !important;
 }
 
 /* Map Type Selector */

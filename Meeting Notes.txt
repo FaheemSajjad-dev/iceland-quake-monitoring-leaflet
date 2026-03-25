@@ -4,6 +4,8 @@ after deployment stress test through students in department
 
 fix zoom levels on time window slider (urgent)
 
+fix the right click options on map
+
 rate limiting (not applied yet) -------------------------- 
                                                             |
                                                             |
