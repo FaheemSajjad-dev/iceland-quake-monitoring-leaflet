@@ -1,8 +1,8 @@
-Read and verify test .tex, if test .tex is ok, then change it with regular .tex
-
 deployment of webapp on local server and a proper host 
 
 after deployment stress test through students in department
+
+fix zoom levels on time window slider (urgent)
 
 rate limiting (not applied yet) -------------------------- 
                                                             |

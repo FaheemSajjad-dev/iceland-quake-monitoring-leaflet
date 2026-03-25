@@ -172,8 +172,9 @@
   opacity: 1;
 }
 
-/* Adjust time window slider container for day view mode */
-.time-window-slider-container.day-view {
+/* Adjust time window slider container for day/week view mode */
+.time-window-slider-container.day-view,
+.time-window-slider-container.week-view {
   padding-bottom: 14px;
   height: auto;
 }
