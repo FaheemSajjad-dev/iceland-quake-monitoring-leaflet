@@ -181,22 +181,24 @@
 
 
 .timeline-track.gray {
-  background: linear-gradient(to right, #dcdcdc, #777, #333);
+  background: linear-gradient(to right, #666666, #444444, #1a1a1a);
 }
 
 .timeline-track.colored {
   background: linear-gradient(
     to right,
-    #e2d9ff,
-    #cbb9f6,
-    #a991e0,
-    #8667c2,
-    #4b2f86,
-    #234078,
-    #30707b,
-    #4b9276,
-    #7bab6d,
-    #b7cf77
+    #b07888,
+    #a06878,
+    #905868,
+    #804858,
+    #6e3848,
+    #5e2c3c,
+    #4e2030,
+    #3e1626,
+    #2e0e1c,
+    #200814,
+    #14040c,
+    #0c0208
   );
 }
 

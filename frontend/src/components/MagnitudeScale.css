@@ -37,7 +37,7 @@
 }
 
 .scale-bar-vertical.scale-bar-colored {
-  background: linear-gradient(to top, #FDE725, #5DC863, #21918C, #3B528B, #440154);
+  background: linear-gradient(to top, #8aa0c0, #5a7098, #344870, #1a2450, #060820);
 }
 
 .magnitude-scale.vertical .min-value,
@@ -134,5 +134,5 @@
 
 /* --- Dynamic color modes for the vertical bar --- */
 .scale-bar-vertical.scale-bar-gray {
-  background: linear-gradient(to top, #dcdcdc, #777777, #333333);
+  background: linear-gradient(to top, #666666, #444444, #1a1a1a);
 }

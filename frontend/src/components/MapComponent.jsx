@@ -11,7 +11,7 @@ import { parseBackendUtcDate } from "../utils/datetime";
 const CENTER = [64.9631, -19.0208];
 
 const MIN_MAG = 2.7;
-const MAG_PALETTE_STOPS = ["#FDE725", "#5DC863", "#21918C", "#3B528B", "#440154"];
+const MAG_PALETTE_STOPS = ["#8aa0c0", "#5a7098", "#344870", "#1a2450", "#060820"];
 
 function hexToRgb(hex) {
   const h = hex.replace("#", "");
@@ -34,16 +34,21 @@ const getMarkerColor = (magnitude, maxMagnitude) => {
   const t = (parseFloat(magnitude) - MIN_MAG) / ((parseFloat(maxMagnitude) - MIN_MAG) || 1);
   return samplePalette(MAG_PALETTE_STOPS, t);
 };
-const getMarkerPixelSize = (mag, maxMag) => {
-  const denom = (parseFloat(maxMag) - MIN_MAG) || 1;
-  const t = Math.max(0, Math.min(1, (parseFloat(mag) - MIN_MAG) / denom));
-  return Math.round(8 + Math.pow(t, 0.7) * 6);
-};
+const MARKER_PX = 10; // fixed size for all markers
 
 const TWILIGHT_MONTH_COLORS = [
-  "#e2d9ff", "#cbb9f6", "#a991e0", "#8667c2",
-  "#6a51a3", "#4b2f86", "#2d1a6f", "#234078",
-  "#30707b", "#4b9276", "#7bab6d", "#b7cf77",
+  "#b07888", // Jan
+  "#a06878", // Feb
+  "#905868", // Mar
+  "#804858", // Apr
+  "#6e3848", // May
+  "#5e2c3c", // Jun
+  "#4e2030", // Jul
+  "#3e1626", // Aug
+  "#2e0e1c", // Sep
+  "#200814", // Oct
+  "#14040c", // Nov
+  "#0c0208", // Dec
 ];
 const getTwilightColorForDate = (isoString) => {
   if (!isoString) return "#6a51a3";
@@ -293,7 +298,7 @@ const GridOverlay = ({ show, isDarkMode, mapType }) => {
 const quakeKey = (q) => `${q["Date-time"]}_${q.Latitude}_${q.Longitude}`;
 
 const getQuakeMarkerStyle = (px, color, isSelected) => ({
-  radius: Math.max(4, (isSelected ? px + 4 : px) / 2),
+  radius: isSelected ? 7 : 5,
   fillColor: color,
   fillOpacity: 1,
   stroke: isSelected,
@@ -335,7 +340,13 @@ const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMar
     markersMapRef.current = new Map();
 
     const sel = selectedEqRef.current;
-    earthquakes.forEach((quake, index) => {
+    // Sort ascending by magnitude so higher-magnitude markers are added last
+    // and appear on top in the SVG stack (higher effective z-index).
+    const sorted = earthquakes
+      .map((q, i) => ({ q, i, mag: parseFloat(q.Mw_mean) || 0 }))
+      .sort((a, b) => a.mag - b.mag);
+
+    sorted.forEach(({ q: quake, i: index }) => {
       const lat = parseFloat(quake.Latitude);
       const lng = parseFloat(quake.Longitude);
       if (isNaN(lat) || isNaN(lng)) return;
@@ -368,7 +379,7 @@ const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMar
       if (!entry) return;
       const { px, color } = markerIconsRef.current[entry.index] || {};
       entry.marker.setStyle(getQuakeMarkerStyle(px, color, isSelected));
-      entry.marker.setRadius(Math.max(4, (isSelected ? px + 4 : px) / 2));
+      entry.marker.setRadius(isSelected ? 7 : 5);
       if (isSelected) entry.marker.bringToFront();
       else entry.marker.bringToBack();
     };
@@ -559,8 +570,7 @@ const MapComponent = ({
         colorOwner === "timeline"
           ? getTwilightColorForDate(quake["Date-time"])
           : getMarkerColor(magnitude, maxMagnitude);
-      const px = getMarkerPixelSize(magnitude, maxMagnitude);
-      return { px, color };
+      return { px: MARKER_PX, color };
     }),
     [earthquakes, colorOwner, maxMagnitude]
   );
