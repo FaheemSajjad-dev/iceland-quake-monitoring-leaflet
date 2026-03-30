@@ -1,11 +1,30 @@
-deployment of webapp on local server and a proper host 
+The site is live at http://pluto.cs.hi.is/mpgv/.
+----------------------------------------------
+after every change locally and after scp to pluto
 
-after deployment stress test through students in department
+ren 
 
-fix zoom levels on time window slider (urgent)
+bash ~/iceland-quake/stop.sh && bash ~/iceland-quake/deploy.sh
 
-fix the right click options on map
+----------------------------------------
+Then future deploys on the server are just bash deploy.sh
+------------------------------------------------
+For true 1000 concurrent users you'd need:
 
+Sudo — nginx caching for tiles/sprites/fonts (those never need to hit Python)
+PostgreSQL instead of SQLite
+A CDN or object storage for the .pmtiles file
+-------------------------------------------------
+change other 3 maps too
+----------------------------
+deployment of webapp on local server (done) and a proper host (talk to met office)
+--------------------------------------
+after deployment stress test through students in department (to do)
+---------------------------------------------
+
+fix map for all kind of screens, tabs to laptops to screens to bigger screens, when opened in browser (with hdmi it's fine)
+
+------------------------------------------------------------)
 rate limiting (not applied yet) -------------------------- 
                                                             |
                                                             |
@@ -22,17 +41,3 @@ marker rendering performance (~297 MB, slow pan/zoom locally)
   - result: improved marker rendering quality, smoother pan/zoom behaviour, and faster overall map rendering
 
 .md files and documentation still have square marker version
---------------------------------------------------------------------------
-font families in thesis documentation (Test_MPGV Monitor.tex):
-  - entire document uses Latin Modern font suite (loaded via \usepackage{lmodern})
-  - three faces in use:
-      LM Roman (serif)   → body text, headers/footers, table cells, captions
-      LM Sans (sans)     → all section/subsection/subsubsection headings, title page elements
-      LM Mono (typewriter) → inline code (\texttt / \code), all 22 verbatim code blocks
-  - inline code examples: react-leaflet, hraun.vedur.is, scrape.py, L.divIcon, gunicorn, etc. (~75+ uses of \texttt)
-  - \code{} custom command is just an alias for \texttt (defined line 82)
-  - \textbf used ~28 times (table headers, key terms)
-  - \emph / \textit used ~14 times (emphasis, Latin terms, quotes)
-  - \highlight used for colour only (FireBrick), no font change
-  - minted package is loaded but never used — all code blocks use verbatim instead
-  - extra space after full stops was LaTeX inter-sentence spacing, fixed with \frenchspacing (line 86)

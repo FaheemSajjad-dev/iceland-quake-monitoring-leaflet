@@ -22,7 +22,7 @@ const VolcanoMarker = ({ volcano, onSelect }) => {
   useEffect(() => {
     if (!map.getPane('volcanoPane')) {
       const pane = map.createPane('volcanoPane');
-      pane.style.zIndex = 350;
+      pane.style.zIndex = 390;
       pane.style.pointerEvents = 'auto';
     }
 

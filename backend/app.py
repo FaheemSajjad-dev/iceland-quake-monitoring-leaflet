@@ -153,6 +153,13 @@ class ShakeMapLink(db.Model):
 def create_tables() -> None:
     with app.app_context():
         db.create_all()
+        # Schema migration: add columns that were added after initial table creation.
+        # db.create_all() does not ALTER existing tables, so we handle it here.
+        with db.engine.connect() as conn:
+            existing = {row[1] for row in conn.execute(db.text("PRAGMA table_info(volcano)"))}
+            if "last_eruption" not in existing:
+                conn.execute(db.text("ALTER TABLE volcano ADD COLUMN last_eruption TEXT"))
+                conn.commit()
 
 create_tables()
 
@@ -350,7 +357,7 @@ def scrape_volcanoes():
 @app.route('/volcanoes', methods=['GET'])
 def get_volcano_data():
     """Returns volcano data from the database as JSON."""
-    with app.app_context():
+    try:
         volcanoes = Volcano.query.all()
         return jsonify([
             {
@@ -364,6 +371,9 @@ def get_volcano_data():
             }
             for v in volcanoes
         ])
+    except Exception:
+        logging.exception("get_volcano_data failed")
+        return jsonify([]), 200
 
 
 @app.route("/reconcile", methods=["POST"])
