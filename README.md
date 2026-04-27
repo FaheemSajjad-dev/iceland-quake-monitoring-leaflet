@@ -17,7 +17,7 @@ This is the **Leaflet clone** of the original Google Maps version — no API key
 | Layer | Technology |
 |---|---|
 | Frontend | React 18 + Vite, react-leaflet 4, leaflet.heat |
-| Map tiles | Esri World Street Map · Esri World Imagery · Esri Dark Gray Canvas (all via `server.arcgisonline.com`) |
+| Map tiles | Self-hosted PMTiles (MapLibre GL) · Esri World Imagery · Esri World Dark Gray |
 | Backend | Python 3, Flask, SQLAlchemy, APScheduler |
 | Database | SQLite (WAL mode) |
 | Tests | pytest (backend) · Vitest + Testing Library (frontend) |
@@ -46,7 +46,7 @@ When a unique match is found, the Skjálftalísa location and depth replace the 
 
 ## Features
 
-- Interactive map with earthquake markers sized and coloured by magnitude
+- Interactive map with earthquake markers coloured by magnitude (fixed 5 px radius — colour encodes time or strength, not size)
 - **Timeline colour mode** — shades markers by when the event occurred
 - **Magnitude colour mode** — shades markers by seismic strength
 - **Time window slider** — filter events by day / week / month / year; scroll to zoom, drag to pan
@@ -75,9 +75,9 @@ The **Heatmap** is the 4th map type, designed for density analysis rather than i
 
 | Component | Detail |
 |---|---|
-| Base tile | Esri Dark Gray Base (`World_Dark_Gray_Base`) — no-labels variant |
+| Base tile | Esri World Dark Gray Base (`World_Dark_Gray_Base`) — no-labels variant |
 | Heat overlay | `leaflet.heat` — count-based density with small magnitude boost |
-| Labels tile | Esri Dark Gray Reference (`World_Dark_Gray_Reference`) in a Leaflet `Pane` at z-index 650, rendered above the heat |
+| Labels tile | Esri World Dark Gray Reference (`World_Dark_Gray_Reference`) in a Leaflet `Pane` at z-index 650, rendered above the heat |
 
 **Heatmap weight:** every earthquake counts equally (weight 1.0); events M 4–5 get a small boost (1.15) and M 5+ get 1.3 — density drives the visualization, not magnitude alone.
 
@@ -107,7 +107,7 @@ iceland-quake-monitoring-leaflet/
 │   ├── volcano_scraper.py      # EPOS volcano data
 │   ├── data/                   # SQLite database (gitignored)
 │   ├── venv/                   # Python virtualenv (gitignored)
-│   └── tests/                  # 37 pytest tests
+│   └── tests/                  # 41 pytest tests
 └── frontend/
     ├── src/
     │   ├── components/         # React components (Map, Slider, Scale, etc.)
@@ -160,7 +160,7 @@ Open [http://localhost:5174](http://localhost:5174).
 
 ## Running Tests
 
-**Backend** (37 tests):
+**Backend** (41 tests):
 ```bash
 cd backend
 python -m pytest tests/ -v
@@ -205,26 +205,26 @@ Key optimisations applied to the frontend:
 
 ## Map Tile Licensing
 
-All four map layers (roadmap, satellite, dark mode, heatmap) now use **Esri's ArcGIS REST CDN** (`server.arcgisonline.com`) exclusively — the same tile infrastructure used by the Icelandic Met Office's own Skjálftalísa earthquake app.
+The roadmap layer is **self-hosted** (no external CDN); satellite and dark/heatmap layers use Esri's ArcGIS CDN.
 
-| Layer | Esri service | Notes |
+| Layer | Provider | Notes |
 |---|---|---|
-| Roadmap | `World_Street_Map` | Replaces OpenStreetMap direct (which is forbidden for production per OSM policy) |
-| Satellite | `World_Imagery` | Unchanged from previous version |
-| Dark mode | `World_Dark_Gray_Base` | Replaces CartoDB Dark Matter |
-| Heatmap base | `World_Dark_Gray_Base` | No-labels variant; heatmap renders above |
-| Heatmap labels | `World_Dark_Gray_Reference` | Labels-only, in a Leaflet Pane at z-index 650 |
+| Roadmap | Self-hosted PMTiles (MapLibre GL, OpenStreetMap-derived) | Bundled `iceland.pmtiles` served locally via HTTP range requests — no third-party CDN |
+| Satellite | Esri `World_Imagery` (`server.arcgisonline.com`) | Free for dev/personal use |
+| Dark mode | Esri `World_Dark_Gray_Base` (`server.arcgisonline.com`) | Replaces CartoDB Dark Matter |
+| Heatmap base | Esri `World_Dark_Gray_Base` | No-labels variant; heatmap renders above |
+| Heatmap labels | Esri `World_Dark_Gray_Reference` | Labels-only, in a Leaflet Pane at z-index 650 |
 
-No API key is required for the current `server.arcgisonline.com` public CDN endpoints. These endpoints have been stable for 10+ years and are widely used by universities and research institutions.
+No API key is required for the Esri `server.arcgisonline.com` public CDN endpoints. The PMTiles roadmap has no third-party dependency at all.
 
 ### For production deployment at IMO
 
 Esri's public CDN endpoints are technically classed as non-commercial/evaluation use without an account. For a formally licensed deployment, one of the following is recommended:
 
-1. **Free ArcGIS Developer account** — register at [developers.arcgis.com](https://developers.arcgis.com), obtain a free API key (2 million tile requests/month free), and append `?token=YOUR_KEY` to the tile URLs. This legitimises usage under Esri's ToS at no cost.
-2. **IMO's own ArcGIS infrastructure** — IMO runs ArcGIS Server at `luk.vedur.is/arcgis/rest/services/`. If they provide a tile endpoint, swap the URLs in `TILE_LAYERS` in `MapComponent.jsx` (one string per layer).
+1. **Free ArcGIS Developer account** — register at [developers.arcgis.com](https://developers.arcgis.com), obtain a free API key (2 million tile requests/month free), and append `?token=YOUR_KEY` to the Esri tile URLs.
+2. **IMO's own ArcGIS infrastructure** — IMO runs ArcGIS Server at `luk.vedur.is/arcgis/rest/services/`. If they provide a matching tile endpoint, swap the URLs in `TILE_LAYERS` in `MapComponent.jsx`.
 
-All tile URLs are defined in a single `TILE_LAYERS` constant in `frontend/src/components/MapComponent.jsx` (≈ line 56). Changing providers requires updating only those URL strings.
+All tile URLs are defined in a single `TILE_LAYERS` constant in `frontend/src/components/MapComponent.jsx`. Changing providers requires updating only those URL strings.
 
 The data APIs (`hraun.vedur.is`, `api.vedur.is`) are IMO's own services and require no licensing changes.
 
