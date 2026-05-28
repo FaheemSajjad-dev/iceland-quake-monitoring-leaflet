@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import MapComponent from "./components/MapComponent";
-import TimeWindowSlider from "./components/TimeWindowSlider";
+import LeftPanel from "./components/LeftPanel";
 import MagnitudeScale from "./components/MagnitudeScale";
 import About from "./components/About";
 import { fetchEarthquakeData, fetchVolcanoData } from "./api";
@@ -20,6 +20,9 @@ const App = () => {
     const [showVolcanoes, setShowVolcanoes] = useState(false);
     const [magnitudeFilter, setMagnitudeFilter] = useState(2.7);
     const [colorOwner, setColorOwner] = useState('timeline');
+    const [mapType, setMapType] = useState('roadmap');
+    const [showGrid, setShowGrid] = useState(false);
+    const [showTectonicZones, setShowTectonicZones] = useState(false);
 
     const [dateRange, setDateRange] = useState({
         startYear: 2020,
@@ -36,11 +39,8 @@ const App = () => {
     const loadData = useCallback(async () => {
         try {
             const data = await fetchEarthquakeData();
-            console.log("Loaded earthquake data:", data.length);
             setAllData(data);
-
             const volcanoes = await fetchVolcanoData();
-            console.log("Loaded volcano data:", volcanoes.length);
             setVolcanoData(volcanoes);
         } catch (error) {
             console.error("Error loading data:", error);
@@ -53,7 +53,6 @@ const App = () => {
         return () => clearInterval(interval);
     }, [loadData]);
 
-    // Max magnitude — only depends on allData, not on filter state
     useEffect(() => {
         if (allData.length === 0) return;
         const mags = allData.map(q => parseFloat(q.Mw_mean)).filter(n => !isNaN(n));
@@ -62,14 +61,12 @@ const App = () => {
 
     useEffect(() => {
         if (allData.length === 0) return;
-
         const filtered = allData.filter(quake => {
             if (!quake["Date-time"] || !quake.Mw_mean) return false;
             try {
                 const qd = parseBackendUtcDate(quake["Date-time"]);
                 if (!qd) return false;
                 const y = qd.getUTCFullYear(), m = qd.getUTCMonth()+1, d = qd.getUTCDate();
-
                 let inRange;
                 if (dateRange.isDayPrecision) {
                     const qv = y*10000 + m*100 + d;
@@ -82,14 +79,12 @@ const App = () => {
                     const ev = dateRange.endYear*100 + dateRange.endMonth;
                     inRange = qv >= sv && qv <= ev;
                 }
-
                 const mag = parseFloat(quake.Mw_mean);
                 return inRange && !isNaN(mag) && mag >= magnitudeFilter;
             } catch {
                 return false;
             }
         });
-
         setFilteredData(filtered);
     }, [allData, dateRange, magnitudeFilter]);
 
@@ -107,31 +102,33 @@ const App = () => {
     }, []);
 
     const [isHeatmap, setIsHeatmap] = useState(false);
+
     const handleMapTypeChange = useCallback(type => {
+        setMapType(type);
         setIsDarkMode(type === "dark_mode" || type === "heatmap");
         setIsHeatmap(type === "heatmap");
-        if (type === "heatmap") setColorOwner('timeline');
+        if (type === "heatmap") {
+            setColorOwner('timeline');
+            setShowTectonicZones(false);
+        }
     }, []);
+
     const toggleVolcanoes = useCallback(() => {
         setShowVolcanoes(v => {
             const next = !v;
-            if (next) {
-                fetchVolcanoData().then(setVolcanoData).catch(() => {});
-            }
+            if (next) fetchVolcanoData().then(setVolcanoData).catch(() => {});
             return next;
         });
     }, []);
+
     const handleMagnitudeFilterChange = useCallback(v => setMagnitudeFilter(v), []);
-    // Stable empty array so MapComponent doesn't re-render when volcanoes are hidden
     const emptyVolcanoes = useMemo(() => [], []);
+
     return (
         <div className="app-container">
             <div className="map-container">
                 <div className="about-button-container">
-                    <button
-                        className="nav-button"
-                        onClick={() => setShowAbout(true)}
-                    >
+                    <button className="nav-button" onClick={() => setShowAbout(true)}>
                         About
                     </button>
                 </div>
@@ -145,18 +142,30 @@ const App = () => {
                     </h1>
                 </div>
 
-                <TimeWindowSlider onFilterChange={handleFilterChange} colorOwner={colorOwner} vertical isHeatmap={isHeatmap} />
+                <LeftPanel
+                    mapType={mapType}
+                    onMapTypeChange={handleMapTypeChange}
+                    showVolcanoes={showVolcanoes}
+                    toggleVolcanoes={toggleVolcanoes}
+                    showGrid={showGrid}
+                    onShowGridChange={() => setShowGrid(v => !v)}
+                    showTectonicZones={showTectonicZones}
+                    onShowTectonicZonesChange={() => setShowTectonicZones(v => !v)}
+                    colorOwner={colorOwner}
+                    onChangeColorOwner={setColorOwner}
+                    isHeatmap={isHeatmap}
+                    onFilterChange={handleFilterChange}
+                />
 
                 <MapComponent
                     earthquakes={filteredData}
                     volcanoes={showVolcanoes ? volcanoData : emptyVolcanoes}
                     maxMagnitude={maxMagnitude}
-                    onMapTypeChange={handleMapTypeChange}
-                    showVolcanoes={showVolcanoes}
-                    toggleVolcanoes={toggleVolcanoes}
+                    mapType={mapType}
+                    showGrid={showGrid}
+                    showTectonicZones={showTectonicZones}
                     colorOwner={colorOwner}
-                    onChangeColorOwner={setColorOwner}
-                    isDarkMode={isDarkMode}   
+                    isDarkMode={isDarkMode}
                 />
 
                 <MagnitudeScale

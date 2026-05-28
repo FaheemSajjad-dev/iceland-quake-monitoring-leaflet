@@ -2,18 +2,29 @@ import { useEffect, useRef } from "react";
 import { useMap } from "react-leaflet";
 import L from "leaflet";
 
-const volcanoSvg = encodeURIComponent(
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
-    <path fill="#ff3c00ff" d="M12,2L2,22h20L12,2z M12,17c-0.6,0-1-0.4-1-1s0.4-1,1-1s1,0.4,1,1S12.6,17,12,17z"/>
-  </svg>`
-);
+const volcanoSvgPath = `<path fill="#ff3c00ff" d="M12,2L2,22h20L12,2z M12,17c-0.6,0-1-0.4-1-1s0.4-1,1-1s1,0.4,1,1S12.6,17,12,17z"/>`;
 
-const volcanoIcon = L.divIcon({
-  className: "",
-  html: `<img src="data:image/svg+xml;charset=UTF-8,${volcanoSvg}" width="20" height="20" style="pointer-events:auto;"/>`,
-  iconSize: [20, 20],
-  iconAnchor: [10, 10],
-});
+const getVolcanoSize = (zoom) =>
+  zoom <= 5  ? 8  :
+  zoom <= 6  ? 10 :
+  zoom <= 7  ? 12 :
+  zoom <= 8  ? 14 :
+  zoom <= 9  ? 16 :
+  zoom <= 10 ? 18 :
+  zoom <= 11 ? 20 : 22;
+
+const buildVolcanoIcon = (zoom) => {
+  const size = getVolcanoSize(zoom);
+  const svg = encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}">${volcanoSvgPath}</svg>`
+  );
+  return L.divIcon({
+    className: "",
+    html: `<img src="data:image/svg+xml;charset=UTF-8,${svg}" width="${size}" height="${size}" style="pointer-events:auto;"/>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+};
 
 const VolcanoMarker = ({ volcano, onSelect }) => {
   const map = useMap();
@@ -34,7 +45,11 @@ const VolcanoMarker = ({ volcano, onSelect }) => {
       return;
     }
 
-    const marker = L.marker([lat, lng], { icon: volcanoIcon, pane: 'volcanoPane', title: volcano.name })
+    const marker = L.marker([lat, lng], {
+      icon: buildVolcanoIcon(map.getZoom()),
+      pane: 'volcanoPane',
+      title: volcano.name,
+    })
       .on("click", (e) => {
         L.DomEvent.stopPropagation(e);
         onSelect(volcano);
@@ -42,7 +57,16 @@ const VolcanoMarker = ({ volcano, onSelect }) => {
       .addTo(map);
 
     markerRef.current = marker;
-    return () => map.removeLayer(marker);
+
+    const handleZoom = () => {
+      marker.setIcon(buildVolcanoIcon(map.getZoom()));
+    };
+    map.on("zoomend", handleZoom);
+
+    return () => {
+      map.removeLayer(marker);
+      map.off("zoomend", handleZoom);
+    };
   }, [map, volcano, onSelect]);
 
   return null;

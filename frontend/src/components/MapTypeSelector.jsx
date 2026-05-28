@@ -12,10 +12,12 @@ const MapTypeSelector = ({ onMapTypeChange }) => {
 
     const getDisplayName = (type) => {
         switch(type) {
-            case 'roadmap': return 'Map';
+            case 'roadmap':   return 'Map';
             case 'satellite': return 'Satellite';
-            case 'dark_mode': return 'Dark Mode';
-            case 'heatmap': return 'Heatmap';
+            case 'terrain':   return 'Terrain';
+            case 'topo':      return 'Topo';
+            case 'gray':      return 'Gray';
+            case 'heatmap':   return 'Heatmap';
             default: return type;
         }
     };
@@ -44,10 +46,22 @@ const MapTypeSelector = ({ onMapTypeChange }) => {
                         Satellite
                     </button>
                     <button
-                        className={`map-type-option ${selectedType === 'dark_mode' ? 'active' : ''}`}
-                        onClick={() => handleTypeChange('dark_mode')}
+                        className={`map-type-option ${selectedType === 'terrain' ? 'active' : ''}`}
+                        onClick={() => handleTypeChange('terrain')}
                     >
-                        Dark Mode
+                        Terrain
+                    </button>
+                    <button
+                        className={`map-type-option ${selectedType === 'topo' ? 'active' : ''}`}
+                        onClick={() => handleTypeChange('topo')}
+                    >
+                        Topo
+                    </button>
+                    <button
+                        className={`map-type-option ${selectedType === 'gray' ? 'active' : ''}`}
+                        onClick={() => handleTypeChange('gray')}
+                    >
+                        Gray
                     </button>
                     <button
                         className={`map-type-option ${selectedType === 'heatmap' ? 'active' : ''}`}

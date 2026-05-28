@@ -5,24 +5,16 @@ import "leaflet/dist/leaflet.css";
 import "maplibre-gl/dist/maplibre-gl.css";
 import maplibregl from "maplibre-gl";
 import "@maplibre/maplibre-gl-leaflet";
-import { Protocol } from "pmtiles";
-import pmLayers from "protomaps-themes-base";
-import MapTypeSelector from "./MapTypeSelector";
 import VolcanoMarker from "./VolcanoMarker";
+import TectonicOverlay from "./TectonicOverlay";
 import "./MapComponent.css";
 import { fetchShakeMapValidated } from "../api";
 import { parseBackendUtcDate } from "../utils/datetime";
 
-// Register pmtiles:// protocol with MapLibre GL once at module load.
-// This lets MapLibre fetch a single .pmtiles file via HTTP range requests
-// instead of hitting a tile server for every tile.
-const _pmtilesProtocol = new Protocol();
-maplibregl.addProtocol("pmtiles", _pmtilesProtocol.tile.bind(_pmtilesProtocol));
-
 const CENTER = [64.9631, -19.0208];
 
 const MIN_MAG = 2.7;
-const MAG_PALETTE_STOPS = ["#8aa0c0", "#5a7098", "#344870", "#1a2450", "#060820"];
+const MAG_PALETTE_STOPS = ["#f5a623", "#e07030", "#c43c28", "#8f1a1a", "#4a0a0a"];
 
 function hexToRgb(hex) {
   const h = hex.replace("#", "");
@@ -47,25 +39,29 @@ const getMarkerColor = (magnitude, maxMagnitude) => {
 };
 const MARKER_PX = 10;
 
-const TWILIGHT_MONTH_COLORS = [
-  "#b07888", // Jan
-  "#a06878", // Feb
-  "#905868", // Mar
-  "#804858", // Apr
-  "#6e3848", // May
-  "#5e2c3c", // Jun
-  "#4e2030", // Jul
-  "#3e1626", // Aug
-  "#2e0e1c", // Sep
-  "#200814", // Oct
-  "#14040c", // Nov
-  "#0c0208", // Dec
+/* Timeline colour palette — North Atlantic ocean depth, oldest (dark navy) → newest (bright teal).
+   Stops mirror the TimeWindowSlider track gradient exactly, mapped by year.
+   Year-based (not month) so each earthquake's dot matches its position on the slider. */
+const TIMELINE_YEAR_STOPS = [
+  "#0a1628", // 2020 — deep navy (oldest)
+  "#164068", // 2021
+  "#2874aa", // 2022
+  "#3590c0", // 2023
+  "#45add4", // 2024
+  "#5ec4de", // 2025
+  "#78d8e8", // 2026 — bright teal (most recent)
 ];
+const TIMELINE_BASE_YEAR = 2020;
+
 const getTwilightColorForDate = (isoString) => {
-  if (!isoString) return "#6a51a3";
+  if (!isoString) return TIMELINE_YEAR_STOPS[3];
   const d = parseBackendUtcDate(isoString);
-  if (!d) return "#6a51a3";
-  return TWILIGHT_MONTH_COLORS[d.getUTCMonth()] || "#6a51a3";
+  if (!d) return TIMELINE_YEAR_STOPS[3];
+  const idx = Math.max(0, Math.min(
+    TIMELINE_YEAR_STOPS.length - 1,
+    d.getUTCFullYear() - TIMELINE_BASE_YEAR
+  ));
+  return TIMELINE_YEAR_STOPS[idx];
 };
 
 // All tile layers now use Esri's ArcGIS REST CDN — the same infrastructure used
@@ -77,10 +73,22 @@ const TILE_LAYERS = {
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     attribution: "Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics",
     maxZoom: 19,
-    maxNativeZoom: 17, // Esri World Imagery native cap; above 17 Leaflet up-scales existing tiles
+    maxNativeZoom: 17,
   },
-  dark_mode: {
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+  terrain: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri &mdash; Source: Esri",
+    maxZoom: 19,
+    maxNativeZoom: 13,
+  },
+  topo: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, USGS, METI/NASA, NGA",
+    maxZoom: 19,
+    maxNativeZoom: 19,
+  },
+  gray: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
     attribution: "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ",
     maxZoom: 19,
     maxNativeZoom: 16,
@@ -96,80 +104,14 @@ const TILE_PROPS = {
   detectRetina:      false, // do not request 2× tiles; avoids over-requesting on retina screens
 };
 
-// Layers to strip entirely from the default "light" theme.
-const PMTILES_REMOVE_LAYERS = new Set([
-  "landuse_park",
-  "landuse_urban_green",
-  "landuse_hospital",
-  "landuse_industrial",
-  "landuse_school",
-  "landuse_zoo",
-  "landuse_aerodrome",
-  "landuse_runway",
-  "landuse_pedestrian",
-  "landuse_pier",
-  "roads_runway",
-  "roads_taxiway",
-  "roads_pier",
-  "roads_rail",
-  "buildings",
-  "address_label",
-  "pois",                // peaks, parks, marinas — all unwanted on this map
-  "landcover",           // replaced by glacier_landuse below
-]);
-
-const GLACIER_PAINT = { "fill-color": "#dff2fb", "fill-opacity": 1 };
-
-function buildPmtilesLayers() {
-  const layers = pmLayers("protomaps", "light")
-    .filter(l => !PMTILES_REMOVE_LAYERS.has(l.id))
-    .map(l => {
-      // Background: default is gray (#cccccc) which leaks outside the tile bbox.
-      // Use water color so any out-of-data area reads as ocean, not blank gray.
-      if (l.id === "background") {
-        return { ...l, paint: { "background-color": "#80deea" } };
-      }
-      return l;
-    });
-
-  // Single glacier layer using landuse source (zoom 2-15) — covers all zoom levels.
-  // Insert right after "earth" so it renders beneath roads/labels.
-  const earthIdx = layers.findIndex(l => l.id === "earth");
-  layers.splice(earthIdx + 1, 0, {
-    id: "glacier_landuse",
-    type: "fill",
-    source: "protomaps",
-    "source-layer": "landuse",
-    filter: ["==", ["get", "kind"], "glacier"],
-    paint: GLACIER_PAINT,
-  });
-
-  return layers;
-}
-
-// Fully self-hosted PMTiles style — tiles, glyphs, and sprites all served locally.
-// No external CDN dependencies.
-const _base = import.meta.env.BASE_URL.replace(/\/$/, '');
-const buildPmtilesStyle = () => ({
-  version: 8,
-  glyphs: `${window.location.origin}${_base}/fonts/pbf/{fontstack}/{range}.pbf`,
-  sprite: `${window.location.origin}${_base}/sprites/v4/light`,
-  sources: {
-    protomaps: {
-      type: "vector",
-      url: `pmtiles://${window.location.origin}${_base}/tiles/iceland.pmtiles`,
-      attribution: "&copy; <a href='https://openstreetmap.org'>OpenStreetMap</a> contributors",
-    },
-  },
-  layers: buildPmtilesLayers(),
-});
+const OPENFREEMAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
 
 const MaplibreVectorLayer = ({ onReady }) => {
   const map = useMap();
   useEffect(() => {
     const gl = L.maplibreGL({
-      style: buildPmtilesStyle(),
-      attribution: "&copy; <a href='https://openstreetmap.org'>OpenStreetMap</a> contributors",
+      style: OPENFREEMAP_STYLE,
+      attribution: "MapLibre | <a href='https://openfreemap.org'>OpenFreeMap</a> &copy; <a href='https://openmaptiles.org'>OpenMapTiles</a> Data from <a href='https://openstreetmap.org'>OpenStreetMap</a>",
       fadeDuration: 0,
       collectResourceTiming: false,
       trackResize: false,
@@ -200,7 +142,9 @@ const MaplibreVectorLayer = ({ onReady }) => {
     }
 
     // Fire once when the first full render pass is complete — all visible tiles painted.
-    mlMap.once("idle", () => onReady?.());
+    // Safety timeout: if idle never fires (e.g. slow CDN), unblock the loading overlay after 8s.
+    const readyTimer = setTimeout(() => onReady?.(), 8000);
+    mlMap.once("idle", () => { clearTimeout(readyTimer); onReady?.(); });
 
     // Ensure the GL canvas is correctly sized on initial load (trackResize:false
     // means MapLibre won't auto-detect the container size at startup).
@@ -233,6 +177,7 @@ const MaplibreVectorLayer = ({ onReady }) => {
     document.addEventListener("webkitfullscreenchange", handleFullscreen);
 
     return () => {
+      clearTimeout(readyTimer);
       clearTimeout(resizeTimer);
       map.off("resize", handleResize);
       document.removeEventListener("fullscreenchange", handleFullscreen);
@@ -293,7 +238,9 @@ const FitIcelandOnReady = () => {
   useEffect(() => {
     map.fitBounds(ICELAND_FIT_BOUNDS, { padding: [10, 10], animate: false });
     const fitZoom = map.getBoundsZoom(L.latLngBounds(ICELAND_FIT_BOUNDS), false, [10, 10]);
-    map.setMinZoom(Math.max(4.5, fitZoom - 0.5));
+    const minZoom = Math.max(4.5, fitZoom - 0.5);
+    map.setMinZoom(minZoom);
+    map.setZoom(minZoom);
   }, [map]);
   return null;
 };
@@ -375,7 +322,7 @@ const ContextMenuEnabler = () => {
 const GridOverlay = ({ show, isDarkMode, mapType }) => {
   const map = useMap();
   const gridRef = useRef([]);
-  const darkLike = isDarkMode || mapType === "satellite" || mapType === "dark_mode" || mapType === "heatmap";
+  const darkLike = isDarkMode || mapType === "satellite" || mapType === "heatmap";
 
   const createGrid = useCallback(() => {
     gridRef.current.forEach((o) => map.removeLayer(o));
@@ -501,8 +448,20 @@ const GridOverlay = ({ show, isDarkMode, mapType }) => {
 
 const quakeKey = (q) => `${q["Date-time"]}_${q.Latitude}_${q.Longitude}`;
 
-const getQuakeMarkerStyle = (px, color, isSelected) => ({
-  radius: isSelected ? 7 : 5,
+const getMarkerRadius = (zoom, isSelected) => {
+  const base =
+    zoom <= 5  ? 2 :
+    zoom <= 6  ? 3 :
+    zoom <= 7  ? 4 :
+    zoom <= 8  ? 5 :
+    zoom <= 9  ? 6 :
+    zoom <= 10 ? 7 :
+    zoom <= 11 ? 8 : 9;
+  return isSelected ? base + 2 : base;
+};
+
+const getQuakeMarkerStyle = (color, isSelected, zoom) => ({
+  radius: getMarkerRadius(zoom, isSelected),
   fillColor: color,
   fillOpacity: 1,
   stroke: isSelected,
@@ -544,6 +503,7 @@ const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMar
     markersMapRef.current = new Map();
 
     const sel = selectedEqRef.current;
+    const zoom = map.getZoom();
     // Sort ascending by magnitude so higher-magnitude markers are added last
     // and appear on top in the SVG stack (higher effective z-index).
     const sorted = earthquakes
@@ -561,9 +521,9 @@ const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMar
         quake.Latitude === sel.Latitude &&
         quake.Longitude === sel.Longitude;
 
-      const { px, color } = markerIcons[index] || {};
+      const { color } = markerIcons[index] || {};
       const marker = L.circleMarker([lat, lng], {
-        ...getQuakeMarkerStyle(px, color, isSelected),
+        ...getQuakeMarkerStyle(color, isSelected, zoom),
       })
         .on("click", (e) => { L.DomEvent.stopPropagation(e); onMarkerClick(quake); })
         .addTo(lg);
@@ -573,17 +533,35 @@ const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMar
     });
   }, [map, earthquakes, markerIcons, onMarkerClick]);
 
+  // Resize all markers when zoom changes
+  useEffect(() => {
+    const handleZoom = () => {
+      const zoom = map.getZoom();
+      const sel = selectedEqRef.current;
+      markersMapRef.current.forEach(({ marker, quake }) => {
+        const isSelected =
+          sel &&
+          quake["Date-time"] === sel["Date-time"] &&
+          quake.Latitude === sel.Latitude &&
+          quake.Longitude === sel.Longitude;
+        marker.setRadius(getMarkerRadius(zoom, isSelected));
+      });
+    };
+    map.on("zoomend", handleZoom);
+    return () => map.off("zoomend", handleZoom);
+  }, [map]);
+
   useEffect(() => {
     const prev = prevSelectedRef.current;
     prevSelectedRef.current = selectedEarthquake;
 
+    const zoom = map.getZoom();
     const updateMarker = (quake, isSelected) => {
       if (!quake) return;
       const entry = markersMapRef.current.get(quakeKey(quake));
       if (!entry) return;
-      const { px, color } = markerIconsRef.current[entry.index] || {};
-      entry.marker.setStyle(getQuakeMarkerStyle(px, color, isSelected));
-      entry.marker.setRadius(isSelected ? 7 : 5);
+      const { color } = markerIconsRef.current[entry.index] || {};
+      entry.marker.setStyle(getQuakeMarkerStyle(color, isSelected, zoom));
       if (isSelected) entry.marker.bringToFront();
       else entry.marker.bringToBack();
     };
@@ -696,20 +674,25 @@ const MapComponent = ({
   earthquakes,
   volcanoes = [],
   maxMagnitude,
-  onMapTypeChange,
-  showVolcanoes,
-  toggleVolcanoes,
+  mapType,
+  showGrid,
+  showTectonicZones = false,
   colorOwner,
-  onChangeColorOwner,
   isDarkMode,
 }) => {
   const [selectedEarthquake, setSelectedEarthquake] = useState(null);
   const [selectedVolcano, setSelectedVolcano] = useState(null);
-  const [showGrid, setShowGrid] = useState(false);
-  const [mapType, setMapType] = useState("roadmap");
   const [shakeUrl, setShakeUrl] = useState(null);
   const [mapReady, setMapReady] = useState(false);
   const handleMapReady = useCallback(() => setMapReady(true), []);
+
+  // Clear selections when switching to heatmap
+  useEffect(() => {
+    if (mapType === "heatmap") {
+      setSelectedEarthquake(null);
+      setSelectedVolcano(null);
+    }
+  }, [mapType]);
 
   useEffect(() => {
     if (!selectedEarthquake) return;
@@ -754,15 +737,6 @@ const MapComponent = ({
     return () => { cancelled = true; };
   }, [selectedEarthquake]);
 
-  const handleMapTypeChange = useCallback((type) => {
-    if (type === "heatmap") {
-      setSelectedEarthquake(null);
-      setSelectedVolcano(null);
-    }
-    setMapType(type);
-    onMapTypeChange(type);
-  }, [onMapTypeChange]);
-
   const handleMarkerClick  = useCallback((quake)   => { setSelectedVolcano(null);    setSelectedEarthquake(quake);   }, []);
   const handleVolcanoClick = useCallback((volcano) => { setSelectedEarthquake(null); setSelectedVolcano(volcano);    }, []);
   const handleMapClick     = useCallback(()        => { setSelectedEarthquake(null); setSelectedVolcano(null);       }, []);
@@ -786,39 +760,6 @@ const MapComponent = ({
           <span>Loading map…</span>
         </div>
       )}
-      <div className="map-type-control">
-        <MapTypeSelector onMapTypeChange={handleMapTypeChange} />
-      </div>
-
-      {mapType !== "heatmap" && (
-        <div className="color-toggle-container">
-          <div className="color-mode-switch">
-            <button className={colorOwner === "timeline" ? "active" : ""} onClick={() => onChangeColorOwner("timeline")}>
-              Timeline colors
-            </button>
-            <button className={colorOwner === "magnitude" ? "active" : ""} onClick={() => onChangeColorOwner("magnitude")}>
-              Magnitude colors
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="volcano-toggle-container">
-        <div className="volcano-toggle">
-          <label className="switch">
-            <input type="checkbox" checked={showVolcanoes} onChange={toggleVolcanoes} />
-            <span className="slider round"></span>
-          </label>
-          <span className="toggle-label">Show volcanoes</span>
-        </div>
-        <div className="volcano-toggle grid-toggle">
-          <label className="switch">
-            <input type="checkbox" checked={showGrid} onChange={() => setShowGrid((v) => !v)} />
-            <span className="slider round"></span>
-          </label>
-          <span className="toggle-label">Show lat-lon grid</span>
-        </div>
-      </div>
 
       <MapContainer
         center={CENTER}
@@ -845,6 +786,7 @@ const MapComponent = ({
         <AttributionControl position="bottomright" prefix={false} />
         <ScaleControl position="bottomright" />
         <GridOverlay show={showGrid} isDarkMode={isDarkMode} mapType={mapType} />
+        <TectonicOverlay show={showTectonicZones} />
         <MapClickHandler onClick={handleMapClick} />
 
         {mapReady && (
@@ -858,7 +800,7 @@ const MapComponent = ({
         )}
         {mapReady && mapType === "heatmap" && <HeatmapLayer earthquakes={earthquakes} />}
 
-        {mapReady && showVolcanoes &&
+        {mapReady && volcanoes.length > 0 &&
           volcanoes.map((volcano, index) => (
             <VolcanoMarker
               key={`volcano-${index}`}
@@ -871,40 +813,57 @@ const MapComponent = ({
       {mapType === "heatmap" && <HeatmapLegend />}
 
       {selectedEarthquake && (
-        <div className="earthquake-info">
-          <p><b>Magnitude: {selectedEarthquake.Mw_mean ?? "N/A"}</b></p>
-          <p><strong>Depth:</strong> {selectedEarthquake.Depth} km</p>
-          <p className="eq-time"><strong>Time:</strong> {selectedEarthquake["Date-time"]}</p>
-          <p><strong>Lat:</strong> {selectedEarthquake.Latitude}</p>
-          <p><strong>Lon:</strong> {selectedEarthquake.Longitude}</p>
-          {shakeUrl && shakeUrl.url && (
-            <button
-              onClick={() => window.open(shakeUrl.url, "_blank", "noopener,noreferrer")}
-              style={{ marginTop: "6px" }}
-              title={`ShakeMap (Δt ${Math.round(shakeUrl.dt_sec)} s, Δd ${shakeUrl.dist_km?.toFixed(1)} km, ΔM ${shakeUrl.dm ?? "–"})`}
-            >
-              ShakeMap
-            </button>
-          )}
-          <button onClick={() => setSelectedEarthquake(null)}>Close</button>
+        <div className="info-card info-card--earthquake">
+          <div className="info-card__header">
+            <span className="info-card__title">Earthquake</span>
+            <button className="info-card__close" onClick={() => setSelectedEarthquake(null)} title="Close">✕</button>
+          </div>
+          <div className="info-card__body">
+            <div className="info-card__magnitude">M {selectedEarthquake.Mw_mean ?? "N/A"}</div>
+            <div className="info-card__rows">
+              <div className="info-card__row"><span>Depth</span><span>{selectedEarthquake.Depth} km</span></div>
+              <div className="info-card__row"><span>Time</span><span className="eq-time">{selectedEarthquake["Date-time"]}</span></div>
+              <div className="info-card__row"><span>Lat</span><span>{selectedEarthquake.Latitude}</span></div>
+              <div className="info-card__row"><span>Lon</span><span>{selectedEarthquake.Longitude}</span></div>
+            </div>
+            {shakeUrl && shakeUrl.url && (
+              <button
+                className="info-card__action"
+                onClick={() => window.open(shakeUrl.url, "_blank", "noopener,noreferrer")}
+                title={`ShakeMap (Δt ${Math.round(shakeUrl.dt_sec)} s, Δd ${shakeUrl.dist_km?.toFixed(1)} km, ΔM ${shakeUrl.dm ?? "–"})`}
+              >
+                View ShakeMap ↗
+              </button>
+            )}
+          </div>
         </div>
       )}
 
       {selectedVolcano && (
-        <div className="volcano-info" style={{ maxWidth: "220px" }}>
-          <h3>{selectedVolcano.name}</h3>
-          {selectedVolcano.description && <p>{selectedVolcano.description}</p>}
-          <p>
-            <strong>Elevation:</strong>{" "}
-            {Number.isFinite(+selectedVolcano.elevation_m) && +selectedVolcano.elevation_m > 0
-              ? `${Math.round(+selectedVolcano.elevation_m)} m (${Math.round(+selectedVolcano.elevation_m * 3.28084)} ft)`
-              : "Unknown"}
-          </p>
-          <p>
-            <strong>Location:</strong>{" "}
-            {`${Number(selectedVolcano.latitude).toFixed(3)}°, ${Number(selectedVolcano.longitude).toFixed(3)}°`}
-          </p>
-          <button onClick={() => setSelectedVolcano(null)}>Close</button>
+        <div className="info-card info-card--volcano">
+          <div className="info-card__header">
+            <span className="info-card__title">{selectedVolcano.name}</span>
+            <button className="info-card__close" onClick={() => setSelectedVolcano(null)} title="Close">✕</button>
+          </div>
+          <div className="info-card__body">
+            {selectedVolcano.description && (
+              <p className="info-card__desc">{selectedVolcano.description}</p>
+            )}
+            <div className="info-card__rows">
+              <div className="info-card__row">
+                <span>Elevation</span>
+                <span>
+                  {Number.isFinite(+selectedVolcano.elevation_m) && +selectedVolcano.elevation_m > 0
+                    ? `${Math.round(+selectedVolcano.elevation_m)} m / ${Math.round(+selectedVolcano.elevation_m * 3.28084)} ft`
+                    : "Unknown"}
+                </span>
+              </div>
+              <div className="info-card__row">
+                <span>Location</span>
+                <span>{`${Number(selectedVolcano.latitude).toFixed(3)}°, ${Number(selectedVolcano.longitude).toFixed(3)}°`}</span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
