@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import MapComponent from "./components/MapComponent";
 import LeftPanel from "./components/LeftPanel";
-import MagnitudeScale from "./components/MagnitudeScale";
+import RightPanel from "./components/RightPanel";
 import About from "./components/About";
 import { fetchEarthquakeData, fetchVolcanoData } from "./api";
 import { parseBackendUtcDate } from "./utils/datetime";
+import { useT } from "./i18n";
 import "./App.css";
 
 const App = () => {
+    const t = useT();
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth() + 1;
     const currentDay = new Date().getDate();
@@ -18,11 +20,11 @@ const App = () => {
     const [maxMagnitude, setMaxMagnitude] = useState(3.0);
     const [isDarkMode, setIsDarkMode] = useState(false);
     const [showVolcanoes, setShowVolcanoes] = useState(false);
-    const [magnitudeFilter, setMagnitudeFilter] = useState(2.7);
+    const [magnitudeFilter, setMagnitudeFilter] = useState(3.0);
     const [colorOwner, setColorOwner] = useState('timeline');
     const [mapType, setMapType] = useState('roadmap');
     const [showGrid, setShowGrid] = useState(false);
-    const [showTectonicZones, setShowTectonicZones] = useState(false);
+    const [showFaults, setShowFaults] = useState(false);
 
     const [dateRange, setDateRange] = useState({
         startYear: 2020,
@@ -35,6 +37,15 @@ const App = () => {
     });
 
     const [showAbout, setShowAbout] = useState(false);
+    const [selectedVolcano, setSelectedVolcano] = useState(null);
+    const [resetViewTrigger, setResetViewTrigger] = useState(0);
+    const resetView = useCallback(() => setResetViewTrigger(v => v + 1), []);
+
+    useEffect(() => {
+        if (!selectedVolcano) return;
+        const t = setTimeout(() => setSelectedVolcano(null), 15_000);
+        return () => clearTimeout(t);
+    }, [selectedVolcano]);
 
     const loadData = useCallback(async () => {
         try {
@@ -56,7 +67,7 @@ const App = () => {
     useEffect(() => {
         if (allData.length === 0) return;
         const mags = allData.map(q => parseFloat(q.Mw_mean)).filter(n => !isNaN(n));
-        setMaxMagnitude(mags.length ? mags.reduce((a, b) => a > b ? a : b, 2.7) : 5.8);
+        setMaxMagnitude(mags.length ? mags.reduce((a, b) => a > b ? a : b, 3.0) : 5.8);
     }, [allData]);
 
     useEffect(() => {
@@ -105,11 +116,11 @@ const App = () => {
 
     const handleMapTypeChange = useCallback(type => {
         setMapType(type);
-        setIsDarkMode(type === "dark_mode" || type === "heatmap");
+        setIsDarkMode(type === "dark_mode" || type === "heatmap" || type === "satellite");
         setIsHeatmap(type === "heatmap");
         if (type === "heatmap") {
             setColorOwner('timeline');
-            setShowTectonicZones(false);
+            setShowFaults(false);
         }
     }, []);
 
@@ -121,6 +132,7 @@ const App = () => {
         });
     }, []);
 
+
     const handleMagnitudeFilterChange = useCallback(v => setMagnitudeFilter(v), []);
     const emptyVolcanoes = useMemo(() => [], []);
 
@@ -129,7 +141,7 @@ const App = () => {
             <div className="map-container">
                 <div className="about-button-container">
                     <button className="nav-button" onClick={() => setShowAbout(true)}>
-                        About
+                        {t('about')}
                     </button>
                 </div>
 
@@ -138,7 +150,7 @@ const App = () => {
                         color: isDarkMode ? "#fff" : "#000",
                         textShadow: isDarkMode ? "2px 2px 4px rgba(0,0,0,0.5)" : "none"
                     }}>
-                        Iceland MPGV Earthquake Map
+                        {t('app_title')}
                     </h1>
                 </div>
 
@@ -149,12 +161,24 @@ const App = () => {
                     toggleVolcanoes={toggleVolcanoes}
                     showGrid={showGrid}
                     onShowGridChange={() => setShowGrid(v => !v)}
-                    showTectonicZones={showTectonicZones}
-                    onShowTectonicZonesChange={() => setShowTectonicZones(v => !v)}
+                    showFaults={showFaults}
+                    onShowFaultsChange={() => setShowFaults(v => !v)}
                     colorOwner={colorOwner}
                     onChangeColorOwner={setColorOwner}
                     isHeatmap={isHeatmap}
                     onFilterChange={handleFilterChange}
+                    minMagnitude={3.0}
+                    maxMagnitude={maxMagnitude}
+                    onMagnitudeFilterChange={handleMagnitudeFilterChange}
+                    onResetView={resetView}
+                />
+
+                <RightPanel
+                    volcanoes={volcanoData}
+                    selectedVolcano={selectedVolcano}
+                    onSelectVolcano={setSelectedVolcano}
+                    showVolcanoes={showVolcanoes}
+                    onToggleVolcanoes={toggleVolcanoes}
                 />
 
                 <MapComponent
@@ -163,17 +187,14 @@ const App = () => {
                     maxMagnitude={maxMagnitude}
                     mapType={mapType}
                     showGrid={showGrid}
-                    showTectonicZones={showTectonicZones}
+                    showFaults={showFaults}
                     colorOwner={colorOwner}
                     isDarkMode={isDarkMode}
+                    selectedVolcano={selectedVolcano}
+                    onSelectVolcano={setSelectedVolcano}
+                    resetViewTrigger={resetViewTrigger}
                 />
 
-                <MagnitudeScale
-                    minMagnitude={2.7}
-                    maxMagnitude={maxMagnitude}
-                    onMagnitudeFilterChange={handleMagnitudeFilterChange}
-                    colorOwner={colorOwner}
-                />
             </div>
 
             {showAbout && <About onClose={() => setShowAbout(false)} />}

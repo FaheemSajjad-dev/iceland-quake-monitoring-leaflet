@@ -14,7 +14,7 @@ DEFAULT_TIMEOUT = 20
 DEFAULT_RETRIES = 3
 DEFAULT_BACKOFF = 0.8
 
-DEFAULT_MIN_MAG = 2.7
+DEFAULT_MIN_MAG = 3.0
 
 def _fmt_utc(dt):
     if dt.tzinfo is None:

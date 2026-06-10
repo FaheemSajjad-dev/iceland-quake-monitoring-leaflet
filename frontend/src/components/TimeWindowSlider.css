@@ -205,6 +205,25 @@
   );
 }
 
+/* T label: visible only in vertical mode, appears just above the slider's visual top.
+   After rotate(-90deg): CSS right edge = visual top, CSS top direction = visual left.
+   top must match the track bar's CSS-top centre = padding_top(26) + slider_h - track_bottom - track_h/2.
+   Default: 26 + 52 - 10 - 11 = 57px. Override in each responsive block when sizes change. */
+.time-window-slider-container.vertical .vertical-letter-label {
+  position: absolute;
+  right: 6px;
+  top: 51px;
+  transform: rotate(90deg);
+  font-size: 13px;
+  font-weight: 800;
+  color: #1a3a5c;
+  letter-spacing: 0.5px;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
 /* ── Vertical orientation (left-side panel) ── */
 .time-window-slider-container.vertical {
   width: 380px;
@@ -215,7 +234,7 @@
      total container CSS height = 26 + 52 + 10 = 88px */
   padding: 26px 24px 10px 24px;
   bottom: auto;
-  left: -84px;               /* centres visual midpoint in the 260px left panel: 260/2 − 428/2 = 130 − 214 = −84 */
+  left: -187px;              /* 10% further left */
   top: calc(50vh - 75px);   /* visual centre = T+44 = 50vh-31 */
   transform: rotate(-90deg);
 }
@@ -303,7 +322,7 @@
   /* CSS_width=508, CSS_height=96: left=20-254+48=-186, top=50vh-31-48=50vh-79 */
   .time-window-slider-container.vertical {
     width: 460px;
-    left: -186px;
+    left: -231px;
     top: calc(50vh - 79px);
   }
   .time-window-slider-container.vertical.heatmap-mode { top: calc(50vh - 58px); }
@@ -313,13 +332,15 @@
   .time-window-slider-container.vertical .day-label,
   .time-window-slider-container.vertical .month-label { font-size: 12px; }
   .time-window-slider-container.vertical .selected-date { font-size: 13px; }
+  /* track centre: 26 + 60 - 10 - 13 = 63 */
+  .time-window-slider-container.vertical .vertical-letter-label { top: 57px; }
 }
 
 @media (min-width: 2100px) {
   /* CSS_width=608, CSS_height=108: left=20-304+54=-230, top=50vh-31-54=50vh-85 */
   .time-window-slider-container.vertical {
     width: 560px;
-    left: -230px;
+    left: -286px;
     top: calc(50vh - 85px);
   }
   .time-window-slider-container.vertical.heatmap-mode { top: calc(50vh - 64px); }
@@ -329,4 +350,6 @@
   .time-window-slider-container.vertical .day-label,
   .time-window-slider-container.vertical .month-label { font-size: 14px; }
   .time-window-slider-container.vertical .selected-date { font-size: 15px; }
+  /* track centre: 26 + 72 - 10 - 15 = 73 */
+  .time-window-slider-container.vertical .vertical-letter-label { top: 67px; }
 }

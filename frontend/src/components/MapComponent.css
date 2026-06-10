@@ -82,11 +82,10 @@
 /* ── Info cards (earthquake + volcano) ── */
 .info-card {
   position: absolute;
-  right: var(--mag-clearance);
+  left: 200px;
   top: 60px;
   width: 220px;
-  /* Never wider than the gap between the left panel (260px) and the magnitude scale */
-  max-width: calc(100vw - 260px - var(--mag-clearance) - 16px);
+  max-width: calc(100vw - 200px - 200px);
   background: #fff;
   border-radius: 10px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
@@ -210,7 +209,7 @@
 .grid-toggle input:checked + .slider { background-color: #2196F3; }
 .switch input:checked + .slider,
 .grid-toggle input:checked + .slider,
-.tectonic-toggle input:checked + .slider {
+.faults-toggle input:checked + .slider {
   opacity: 1 !important;
   filter: none !important;
 }
@@ -360,13 +359,44 @@
   font-size: 11px;
   color: #333;
 }
-.tectonic-legend__row:last-child { margin-bottom: 0; }
+.tectonic-legend__row:last-of-type { margin-bottom: 0; }
+.tectonic-legend__source {
+  display: block;
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(0,0,0,0.10);
+  color: #245f9f;
+  font-size: 10px;
+  text-decoration: none;
+}
+
+.tectonic-wms-pane img {
+  filter:
+    contrast(1.5)
+    drop-shadow(0 0 1px rgba(255,255,255,0.95))
+    drop-shadow(0 0 1px rgba(0,0,0,0.85));
+}
+.tectonic-legend__source:hover {
+  text-decoration: underline;
+}
 .tec-swatch {
   display: inline-block;
   width: 26px;
   height: 11px;
   flex-shrink: 0;
   border-radius: 3px;
+}
+/* official HIKE WMS linework */
+.tec-swatch--official {
+  height: 8px;
+  margin-top: 1px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(48, 48, 48, 0.86) 0 7px,
+      transparent 7px 10px
+    );
+  border: 1px solid rgba(48, 48, 48, 0.28);
 }
 /* rift swatch: soft orange fill, no border */
 .tec-swatch--rift {
@@ -392,4 +422,18 @@
 .leaflet-bottom.leaflet-right .leaflet-control-scale {
   margin-bottom: 29px; /* Leaflet adds ~10px default bottom padding → 10 + 29 = 39px */
   margin-right: 10px;  /* Leaflet's default margin-right is 10px → 10 + 10 = 20px from edge */
+}
+
+.faults-toggle-icon {
+  display: inline-block;
+  width: 14px;
+  text-align: center;
+  font-weight: 700;
+  line-height: 1;
+  transform: rotate(22deg);
+}
+
+.leaflet-bottom.leaflet-right .faults-legend-control {
+  margin-bottom: 12px;
+  margin-right: 172px;
 }

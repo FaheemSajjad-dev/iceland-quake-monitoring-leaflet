@@ -187,22 +187,29 @@ def scheduled_scrape() -> None:
         import scrape as _scrape; importlib.reload(_scrape)
         import reconcile as _reconcile; importlib.reload(_reconcile)
         import skjalftalisa_client as _sk; importlib.reload(_sk)
+        import volcano_scraper as _volcano; importlib.reload(_volcano)
         scrape_all_earthquake_data = _scrape.scrape_all_earthquake_data
         match_and_merge = _reconcile.match_and_merge
         fetch_last_n_days = _sk.fetch_last_n_days
         store_skjalftalisa_rows = _sk.store_skjalftalisa_rows
+        refresh_volcanoes = _volcano.refresh_volcanoes
 
         scrape_all_earthquake_data()
 
         try:
-            rows = fetch_last_n_days(7, size_min=2.7)
+            rows = fetch_last_n_days(7, size_min=3.0)
             store_skjalftalisa_rows(rows)
         except Exception as e:
             print(f"Skjálftalísa fetch failed: {e}")
 
         end = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         start = "2020-06-01 00:00:00"
-        match_and_merge(start, end, min_mag=2.7)
+        match_and_merge(start, end, min_mag=3.0)
+
+        try:
+            refresh_volcanoes(DB_PATH)
+        except Exception as e:
+            print(f"EPOS volcano refresh failed: {e}")
 
         # Invalidate response cache so next request gets fresh reconciled data
         _eq_cache["data"] = None
@@ -250,7 +257,7 @@ def get_earthquake_data():
             return _eq_cache["data"]
 
     with app.app_context():
-        q = EarthquakeMerged.query
+        q = EarthquakeMerged.query.filter(EarthquakeMerged.mw_mean >= 3.0)
 
         if days_param != "all":
             try:
@@ -284,7 +291,7 @@ def get_earthquake_data_csv():
     days_param = (request.args.get("days") or "all").strip().lower()
 
     with app.app_context():
-        q = EarthquakeMerged.query
+        q = EarthquakeMerged.query.filter(EarthquakeMerged.mw_mean >= 3.0)
 
         if days_param != "all":
             try:
@@ -367,7 +374,7 @@ def run_reconcile():
     from reconcile import match_and_merge
     end = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     start = "2020-06-01 00:00:00"
-    match_and_merge(start, end, min_mag=2.7)
+    match_and_merge(start, end, min_mag=3.0)
     return jsonify({"message": "Reconcile completed"}), 200
 
 
