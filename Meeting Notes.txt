@@ -21,9 +21,9 @@ code/comments fix
 -------------------------------------------------
 For true 1000 concurrent users you'd need:
 
-Sudo — nginx caching for tiles/sprites/fonts (those never need to hit Python)
+Sudo â€” nginx caching for tiles/sprites/fonts (those never need to hit Python)
 PostgreSQL instead of SQLite
-A CDN or object storage for the .pmtiles file
+Licensed public or institution-managed tile services for production map layers
 -------------------------------------------------
 change other 3 maps too (maybe)
 ----------------------------
@@ -50,4 +50,4 @@ marker rendering performance (~297 MB, slow pan/zoom locally)
   - observed memory improvement: browser tab usage dropped from about 297 MB to about 66-70 MB; hovering over the webapp tab now shows around 66 MB
   - result: improved marker rendering quality, smoother pan/zoom behaviour, and faster overall map rendering
 
-.md files and documentation updated to reflect circular L.circleMarker (fixed 5 px radius) — square marker references removed from README, SECURITY, and LaTeX thesis documentation
+.md files and documentation updated to reflect circular L.circleMarker (fixed 5 px radius) â€” square marker references removed from README, SECURITY, and LaTeX thesis documentation
