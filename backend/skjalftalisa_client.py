@@ -4,48 +4,45 @@ import requests
 from app import app, db, EarthquakeSRaw
 
 
-API_URL = "https://api.vedur.is/skjalftalisa/v1/quake/array"
+API_URL = "https://api.vedur.is/quakes/events"
 
 CUTOFF_UTC = datetime(2020, 6, 1, 0, 0, 0, tzinfo=timezone.utc)
 
-# API limit: max 1 year per request
-MAX_SPAN_DAYS = 365
 DEFAULT_TIMEOUT = 20
 DEFAULT_RETRIES = 3
 DEFAULT_BACKOFF = 0.8
 
 DEFAULT_MIN_MAG = 3.0
 
+
+def _fmt_iso(dt):
+    """Format datetime as ISO 8601 UTC string for the Quakes API."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    dt = dt.astimezone(timezone.utc).replace(microsecond=0)
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def _fmt_utc(dt):
+    """Format datetime as YYYY-MM-DD HH:MM:SS for DB storage."""
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     dt = dt.astimezone(timezone.utc).replace(microsecond=0)
     return dt.strftime("%Y-%m-%d %H:%M:%S")
 
-def _chunk_ranges(start_utc, end_utc, max_days=MAX_SPAN_DAYS):
-    if start_utc.tzinfo is None:
-        start_utc = start_utc.replace(tzinfo=timezone.utc)
-    if end_utc.tzinfo is None:
-        end_utc = end_utc.replace(tzinfo=timezone.utc)
 
-    cur = start_utc
-    one_day = timedelta(days=1)
-    while cur <= end_utc:
-        nxt = min(cur + timedelta(days=max_days) - one_day, end_utc)
-        yield (cur, nxt)
-        cur = nxt + one_day
-
-def _post_with_retry(url, json, timeout=DEFAULT_TIMEOUT, retries=DEFAULT_RETRIES, backoff=DEFAULT_BACKOFF):
+def _get_with_retry(url, params, timeout=DEFAULT_TIMEOUT, retries=DEFAULT_RETRIES, backoff=DEFAULT_BACKOFF):
     last_err = None
     for i in range(retries):
         try:
-            r = requests.post(url, json=json, timeout=timeout)
+            r = requests.get(url, params=params, timeout=timeout)
             r.raise_for_status()
             return r
         except Exception as e:
             last_err = e
             _time.sleep((i + 1) * backoff)
     raise last_err
+
 
 def _safe_float(x):
     try:
@@ -55,24 +52,27 @@ def _safe_float(x):
     except Exception:
         return None
 
-def _normalize_time_to_utc_str(t_val):
-    # API returns 'time' as a Unix timestamp (int) or sometimes a string
-    if isinstance(t_val, (int, float)):
-        dt = datetime.fromtimestamp(t_val, tz=timezone.utc)
+
+def _parse_iso_to_utc_str(t_val):
+    """Parse ISO 8601 timestamp to 'YYYY-MM-DD HH:MM:SS' in UTC."""
+    if not isinstance(t_val, str):
+        return None
+    try:
+        normalized = t_val.strip().replace("Z", "+00:00")
+        dt = datetime.fromisoformat(normalized)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
         return _fmt_utc(dt)
-    if isinstance(t_val, str):
-        try:
-            if "T" in t_val:  # ISO-ish: 'YYYY-MM-DDTHH:MM:SSZ'
-                t_val = t_val.replace("Z", " ").replace("T", " ").strip()
-            t_val = t_val.split(".")[0]  # strip fractional seconds
-            dt = datetime.strptime(t_val, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
-            return _fmt_utc(dt)
-        except Exception:
-            return None
-    return None
+    except Exception:
+        return None
+
 
 def fetch_skjalftalisa(start_time_utc, end_time_utc, size_min=DEFAULT_MIN_MAG, fields=None):
-    """Fetch earthquakes from Skjálftalísa, chunked to respect the 1-year API limit."""
+    """Fetch earthquakes from the IMO Quakes API as GeoJSON.
+
+    The function name is kept for compatibility with the rest of the backend;
+    the old Skjalftalisa endpoint was replaced by https://api.vedur.is/quakes/.
+    """
     if start_time_utc.tzinfo is None:
         start_time_utc = start_time_utc.replace(tzinfo=timezone.utc)
     if end_time_utc.tzinfo is None:
@@ -82,70 +82,65 @@ def fetch_skjalftalisa(start_time_utc, end_time_utc, size_min=DEFAULT_MIN_MAG, f
         return []
     start_time_utc = max(start_time_utc, CUTOFF_UTC)
 
-    if fields is None:
-        fields = ["event_id", "lat", "long", "time", "magnitude", "depth"]
+    params = {
+        "start_time": _fmt_iso(start_time_utc),
+        "end_time": _fmt_iso(end_time_utc),
+        "size_min": float(size_min),
+        "format": "json",
+    }
+
+    r = _get_with_retry(API_URL, params=params)
+    payload = r.json()
+    features = payload.get("features") if isinstance(payload, dict) else []
+    if not isinstance(features, list):
+        return []
 
     results = []
-
-    for chunk_start, chunk_end in _chunk_ranges(start_time_utc, end_time_utc, MAX_SPAN_DAYS):
-        body = {
-            "start_time": _fmt_utc(chunk_start),
-            "end_time":   _fmt_utc(chunk_end),
-            "size_min":   float(size_min),
-            "event_type": ["qu"],
-            "fields":     list(fields),
-            "sort":       []
-        }
-
-        r = _post_with_retry(API_URL, json=body)
-        payload = r.json()
-        data = payload.get("data", {})
-
-        # The service returns columnar arrays: data = { "lat": [...], "long": [...], ... }
-        # When no results exist it returns {"lat": null, ...} instead of {"lat": [], ...}
-        if not isinstance(data, dict) or not data:
-            continue
-        keys = list(data.keys())
-        first_col = data[keys[0]] if keys else None
-        if not isinstance(first_col, list):
+    for feat in features:
+        if not isinstance(feat, dict):
             continue
 
-        n_rows = len(first_col)
-        for i in range(n_rows):
-            raw = {k: data[k][i] for k in keys}
+        props = feat.get("properties") or {}
+        geometry = feat.get("geometry") or {}
+        coords = geometry.get("coordinates") or []
 
-            t_str = _normalize_time_to_utc_str(raw.get("time"))
-            lat = _safe_float(raw.get("lat"))
-            lon = _safe_float(raw.get("long"))
-            dep = _safe_float(raw.get("depth"))
-            mag = _safe_float(raw.get("magnitude"))
+        if len(coords) < 2:
+            continue
 
-            if t_str is None or lat is None or lon is None:
-                continue
+        lon = _safe_float(coords[0])  # GeoJSON is [lon, lat]
+        lat = _safe_float(coords[1])
+        dep = _safe_float(props.get("depth"))
+        mag = _safe_float(props.get("magnitude"))
+        t_str = _parse_iso_to_utc_str(props.get("time"))
 
-            results.append({
-                "event_id": raw.get("event_id"),
-                "time": t_str,
-                "lat": lat,
-                "long": lon,
-                "depth": dep,
-                "magnitude": mag,
-            })
+        if t_str is None or lat is None or lon is None:
+            continue
+
+        results.append({
+            "event_id": props.get("event_id"),
+            "time": t_str,
+            "lat": lat,
+            "long": lon,
+            "depth": dep,
+            "magnitude": mag,
+        })
 
     return results
+
 
 def fetch_last_n_days(n_days=30, size_min=DEFAULT_MIN_MAG):
     end = datetime.now(timezone.utc).replace(microsecond=0)
     start = end - timedelta(days=n_days)
     return fetch_skjalftalisa(start, end, size_min=size_min)
 
+
 def store_skjalftalisa_rows(rows):
-    """Upsert Skjálftalísa rows by event_id."""
+    """Upsert Quakes API rows by event_id."""
     if not rows:
         return
 
     inserted = 0
-    updated  = 0
+    updated = 0
 
     with app.app_context():
         for r in rows:
@@ -157,39 +152,38 @@ def store_skjalftalisa_rows(rows):
             if rec:
                 changed = (
                     rec.date_time != r["time"] or
-                    rec.latitude  != r["lat"]  or
+                    rec.latitude != r["lat"] or
                     rec.longitude != r["long"] or
-                    rec.depth     != r.get("depth") or
+                    rec.depth != r.get("depth") or
                     rec.magnitude != r.get("magnitude")
                 )
                 if changed:
                     rec.date_time = r["time"]
-                    rec.latitude  = r["lat"]
+                    rec.latitude = r["lat"]
                     rec.longitude = r["long"]
-                    rec.depth     = r.get("depth")
+                    rec.depth = r.get("depth")
                     rec.magnitude = r.get("magnitude")
                     updated += 1
             else:
                 db.session.add(EarthquakeSRaw(
-                    event_id = ev_id,
-                    date_time= r["time"],
-                    latitude = r["lat"],
-                    longitude= r["long"],
-                    depth    = r.get("depth"),
-                    magnitude= r.get("magnitude"),
+                    event_id=ev_id,
+                    date_time=r["time"],
+                    latitude=r["lat"],
+                    longitude=r["long"],
+                    depth=r.get("depth"),
+                    magnitude=r.get("magnitude"),
                 ))
                 inserted += 1
 
         db.session.commit()
 
     if inserted > 0 or updated > 0:
-        print(f"Inserted {inserted} | Updated {updated} Skjálftalísa rows.")
+        print(f"Inserted {inserted} | Updated {updated} Quakes API rows.")
 
 
 def backfill_skjalftalisa_since_2020(size_min=2.0):
-    # size_min=2.0 keeps it fast; use 0.0 for a full backfill
     start = datetime(2020, 6, 1, 0, 0, 0, tzinfo=timezone.utc)
-    end   = datetime.now(timezone.utc).replace(microsecond=0)
+    end = datetime.now(timezone.utc).replace(microsecond=0)
 
     total = 0
     cur_start = start
@@ -205,7 +199,7 @@ def backfill_skjalftalisa_since_2020(size_min=2.0):
 
 
 if __name__ == "__main__":
-    print("Skjálftalísa probe: last 30 days, size_min=0.0")
+    print("Quakes API probe: last 30 days, size_min=0.0")
     rows = fetch_last_n_days(30, size_min=0.0)
     print(f"Fetched {len(rows)} rows.")
     for q in rows[:3]:
