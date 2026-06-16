@@ -15,6 +15,8 @@ from datetime import datetime, timedelta, timezone
 
 from flask import Flask, jsonify, request, make_response
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from flask_sqlalchemy import SQLAlchemy
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -37,6 +39,40 @@ _ALLOWED_ORIGINS = [
 CORS(app, origins=_ALLOWED_ORIGINS)
 if Compress:
     Compress(app)
+
+app.config["RATELIMIT_ENABLED"] = os.environ.get("RATE_LIMIT_ENABLED", "true").lower() not in {"0", "false", "no"}
+app.config["RATELIMIT_HEADERS_ENABLED"] = True
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=[os.environ.get("RATE_LIMIT_DEFAULT", "300 per minute")],
+    storage_uri=os.environ.get("RATE_LIMIT_STORAGE", "memory://"),
+)
+
+
+def rate_limit(name: str, fallback: str) -> str:
+    env_name = f"RATE_LIMIT_{name}"
+    return os.environ.get(env_name, fallback)
+
+
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Content-Security-Policy": (
+        "default-src 'self'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'"
+    ),
+}
+
+
+@app.after_request
+def add_security_headers(response):
+    for header, value in SECURITY_HEADERS.items():
+        response.headers.setdefault(header, value)
+    return response
 
 logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
@@ -241,11 +277,13 @@ def ensure_background_services() -> None:
 # Routes
 # -----------------------------------------------------------------------------
 @app.route("/", methods=["GET"])
+@limiter.exempt
 def home():
     return jsonify({"message": "Iceland Earthquake Monitoring API is running!"})
 
 
 @app.route("/earthquakes", methods=["GET"])
+@limiter.limit(lambda: rate_limit("EARTHQUAKES", "120 per minute"))
 def get_earthquake_data():
     """Return merged earthquake data. Optional ?days=NN limits to recent window."""
     days_param = (request.args.get("days") or "all").strip().lower()
@@ -286,6 +324,7 @@ def get_earthquake_data():
         return result
 
 @app.route("/earthquakes_csv", methods=["GET"])
+@limiter.limit(lambda: rate_limit("CSV", "10 per minute"))
 def get_earthquake_data_csv():
     """Download merged earthquake data as CSV. Optional ?days=NN limits the window."""
     days_param = (request.args.get("days") or "all").strip().lower()
@@ -328,6 +367,7 @@ def get_earthquake_data_csv():
         return response
 
 @app.route('/scrape-volcanoes', methods=['GET'])
+@limiter.exempt
 def scrape_volcanoes():
     """Fetch and save live volcano data from EPOS Iceland API (localhost only)."""
     if request.remote_addr not in ("127.0.0.1", "::1"):
@@ -345,6 +385,7 @@ def scrape_volcanoes():
 
 
 @app.route('/volcanoes', methods=['GET'])
+@limiter.limit(lambda: rate_limit("VOLCANOES", "120 per minute"))
 def get_volcano_data():
     """Returns volcano data from the database as JSON."""
     try:
@@ -367,6 +408,7 @@ def get_volcano_data():
 
 
 @app.route("/reconcile", methods=["POST"])
+@limiter.exempt
 def run_reconcile():
     """Manual trigger to rerun the reconcile step (localhost only)."""
     if request.remote_addr not in ("127.0.0.1", "::1"):
@@ -379,6 +421,7 @@ def run_reconcile():
 
 
 @app.route("/health", methods=["GET"])
+@limiter.exempt
 def health():
     """Row counts for each table â€” quick sanity check."""
     with app.app_context():
@@ -400,6 +443,7 @@ def _km_distance(lat1, lon1, lat2, lon2):
     return 2 * R * math.asin(min(1, math.sqrt(a)))
 
 @app.route("/shakemap_lookup", methods=["GET"])
+@limiter.limit(lambda: rate_limit("SHAKEMAP", "60 per minute"))
 def shakemap_lookup():
     """Query EPOS shakemaps near an event. Params: dt, lat, lon."""
     dt_str = (request.args.get("dt") or "").strip()
@@ -465,6 +509,7 @@ def shakemap_lookup():
 
 # --- Return validated ShakeMap URL for an event -----------------------------
 @app.route("/shakemap/<dt>", methods=["GET"])
+@limiter.limit(lambda: rate_limit("SHAKEMAP", "60 per minute"))
 def shakemap(dt):
     link = db.session.get(ShakeMapLink, dt)
     if not link or link.status != "valid":
