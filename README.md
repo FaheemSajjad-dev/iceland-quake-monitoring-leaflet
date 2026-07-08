@@ -75,7 +75,7 @@ Each Quakes API event is used at most once in the merged catalogue. If multiple 
 - Main latitude labels plus unlabeled latitude midlines between main lines
 - Longitude labels anchored near the bottom with collision spacing
 - Default map-view button that returns to the Iceland opening view without reloading
-- Heatmap mode for density-first analysis
+- Heatmap mode for density-first analysis with subdued per-event weights
 - Earthquake and volcano info cards positioned near the upper-left map work area
 
 ## Map Layers
@@ -88,11 +88,11 @@ Each Quakes API event is used at most once in the merged catalogue. If multiple 
 | Gray | CARTO light basemap | Quiet inspection layer |
 | Heatmap | CARTO dark base + `leaflet.heat` + label overlay | Earthquake density visualization |
 
-MapLibre GL requires browser WebGL support for the vector **Map** layer. If WebGL is disabled by browser settings, enterprise policy, or graphics acceleration settings, that layer can fail in that browser.
+MapLibre GL requires browser WebGL support for the vector **Map** layer. If WebGL is disabled by browser settings, enterprise policy, or graphics acceleration settings, the app falls back to a CARTO light raster basemap so the map remains usable.
 
 ## Heatmap Layer
 
-The heatmap is density-first. Every earthquake contributes a base weight of 1.0, M 4-5 events receive a small 1.15 boost, and M 5+ events receive 1.3. The gradient runs from transparent through dark blue, teal, amber, orange, and red. Individual markers are hidden while heatmap mode is active.
+The heatmap is density-first. M 3-4 events contribute weight 0.20, M 4-5 events contribute 0.30, and M 5+ events contribute 0.45, so nearby clusters dominate over isolated large events. The gradient runs from transparent through dark blue, teal, amber, orange, and red. Individual markers are hidden while heatmap mode is active.
 
 `leaflet.heat` is loaded dynamically after `window.L = L` to avoid module-hoisting issues.
 
@@ -208,9 +208,10 @@ Rate limiting protects request frequency, not total user capacity. See `RATE_LIM
 | Earthquake markers | SVG `L.circleMarker` rendering with separate invisible hit targets for easier selection |
 | `TimeWindowSlider` | Stable wheel listener via `useRef`, memoized divider generation |
 | `MapComponent` tiles | `updateWhenZooming=false`, `updateWhenIdle=false`, `keepBuffer=4`, `detectRetina=false` |
-| `HeatmapLayer` | Rebuilt only on data changes and `zoomend`; panning does not redraw |
+| `HeatmapLayer` | Rebuilt only on data changes and heatmap zoom-band changes; panning does not redraw |
 | `FaultsOverlay` | Fetches filtered WFS GeoJSON on first use, then reuses the in-memory cache |
 | Attribution | Uses one compact bottom-right attribution line instead of stacked provider strings |
+| Map vector layer | Falls back to a CARTO raster basemap if MapLibre GL fails to initialize |
 
 ## Map Tile Licensing
 
