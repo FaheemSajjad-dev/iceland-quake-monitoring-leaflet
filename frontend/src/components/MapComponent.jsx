@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { MapContainer, TileLayer, ScaleControl, AttributionControl, useMap, useMapEvents } from "react-leaflet";
+import MapLibreMap, { NavigationControl, Source, Layer, Marker, ScaleControl as MapLibreScaleControl, useControl } from "react-map-gl/maplibre";
+import { MapboxOverlay } from "@deck.gl/mapbox";
+import { ScatterplotLayer } from "@deck.gl/layers";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -13,9 +16,58 @@ import { parseBackendUtcDate } from "../utils/datetime";
 import { useT } from "../i18n";
 
 const CENTER = [64.9631, -19.0208];
+const ICELAND_CENTER = {
+  longitude: -19.0208,
+  latitude: 64.9631,
+};
+const ICELAND_VIEW = {
+  longitude: ICELAND_CENTER.longitude,
+  latitude: ICELAND_CENTER.latitude,
+  zoom: 5.5,
+  pitch: 0,
+  bearing: 0,
+};
+const ICELAND_BOUNDS_LNG_LAT = [
+  [-36, 58],
+  [-4, 72],
+];
 
 const MIN_MAG = 3.0;
 const MAG_PALETTE_STOPS = ["#f5a623", "#e07030", "#c43c28", "#8f1a1a", "#4a0a0a"];
+
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+const getLeftControlRightPx = () => {
+  if (typeof window === "undefined" || typeof document === "undefined") return 185;
+  const drawer = document.querySelector(".left-panel:not(.left-panel--collapsed) .left-panel__drawer");
+  const rect = drawer?.getBoundingClientRect?.();
+  if (!rect || rect.width <= 1) return 0;
+  return clamp(rect.right, 0, Math.max(0, window.innerWidth - 1));
+};
+
+const getDefaultIcelandView = ({ tileSize, minZoom = 4 } = {}) => {
+  if (typeof window === "undefined") return { ...ICELAND_VIEW, zoom: minZoom };
+  const leftControlRight = getLeftControlRightPx();
+  const zoom = minZoom;
+  const degreesPerPixel = 360 / (tileSize * (2 ** zoom));
+  const longitude = ICELAND_CENTER.longitude - (leftControlRight / 2) * degreesPerPixel;
+  return {
+    longitude,
+    latitude: ICELAND_CENTER.latitude,
+    zoom,
+    pitch: 0,
+    bearing: 0,
+  };
+};
+
+const getDefaultMapLibreView = () => getDefaultIcelandView({ tileSize: 512, minZoom: 4, maxZoom: 18 });
+const getDefaultLeafletView = () => {
+  const view = getDefaultIcelandView({ tileSize: 256, minZoom: 4.5, maxZoom: 18 });
+  return {
+    center: [view.latitude, view.longitude],
+    zoom: view.zoom,
+  };
+};
 
 function hexToRgb(hex) {
   const h = hex.replace("#", "");
@@ -38,7 +90,6 @@ const getMarkerColor = (magnitude, maxMagnitude) => {
   const t = (parseFloat(magnitude) - MIN_MAG) / ((parseFloat(maxMagnitude) - MIN_MAG) || 1);
   return samplePalette(MAG_PALETTE_STOPS, t);
 };
-const MARKER_PX = 10;
 
 /* Timeline colour palette — North Atlantic ocean depth, oldest (dark navy) → newest (bright teal).
    Stops mirror the TimeWindowSlider track gradient exactly, mapped by year.
@@ -74,9 +125,15 @@ const getTimelineColorForDate = (isoString, palette = TIMELINE_YEAR_STOPS) => {
   return palette[idx];
 };
 
-// Basemap definitions. The default vector map is handled by MaplibreVectorLayer.
+// Raster basemap definitions used by Leaflet-only views and non-vector fallbacks.
+// The default Map layer is rendered by MapLibre with OpenFreeMap Positron.
 const TILE_LAYERS = {
-  roadmap: null, // handled by MaplibreVectorLayer
+  roadmap: {
+    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+    maxZoom: 19,
+    maxNativeZoom: 18,
+    subdomains: "abcd",
+  },
   satellite: {
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     maxZoom: 19,
@@ -86,12 +143,6 @@ const TILE_LAYERS = {
     url: "https://geo.vedur.is/geoserver/www/imo_basemap_epsg3857/{z}/{x}/{y}.png",
     maxZoom: 19,
     maxNativeZoom: 14,
-  },
-  gray: {
-    url: "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png",
-    maxZoom: 19,
-    maxNativeZoom: 18,
-    subdomains: "abcd",
   },
 };
 
@@ -104,27 +155,71 @@ const TILE_PROPS = {
 };
 
 const OPENFREEMAP_STYLE_URL = "https://tiles.openfreemap.org/styles/positron";
+const buildRasterMapStyle = (sourceId, layerId, source) => ({
+  version: 8,
+  sources: {
+    [sourceId]: {
+      type: "raster",
+      tiles: source.tiles,
+      tileSize: source.tileSize,
+      maxzoom: source.maxzoom,
+      attribution: source.attribution,
+    },
+  },
+  layers: [
+    { id: layerId, type: "raster", source: sourceId },
+  ],
+});
+
+const MAPLIBRE_RASTER_SOURCES = {
+  satellite: {
+    tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+    tileSize: 256,
+    maxzoom: 17,
+    attribution: "Esri | Maxar | Earthstar Geographics",
+  },
+  terrain: {
+    tiles: ["https://geo.vedur.is/geoserver/www/imo_basemap_epsg3857/{z}/{x}/{y}.png"],
+    tileSize: 256,
+    maxzoom: 14,
+    attribution: "Icelandic Met Office | Natural Science Institute of Iceland | OpenStreetMap",
+  },
+};
+
+const MAPLIBRE_STYLES = {
+  roadmap: OPENFREEMAP_STYLE_URL,
+  satellite: buildRasterMapStyle("esri-satellite", "esri-satellite-layer", MAPLIBRE_RASTER_SOURCES.satellite),
+  terrain: buildRasterMapStyle("imo-basemap", "imo-basemap-layer", MAPLIBRE_RASTER_SOURCES.terrain),
+};
+
+const colorStringToDeckRgba = (color, alpha = 230) => {
+  if (!color) return [136, 136, 136, alpha];
+  if (color.startsWith("#")) {
+    const { r, g, b } = hexToRgb(color);
+    return [r, g, b, alpha];
+  }
+  const match = color.match(/\d+/g);
+  if (!match || match.length < 3) return [136, 136, 136, alpha];
+  return [Number(match[0]), Number(match[1]), Number(match[2]), alpha];
+};
+
+const getDeckMarkerRadius = (zoom, isSelected) => getMarkerRadius(zoom, isSelected);
+
 const COMPACT_ATTRIBUTIONS = {
-  roadmap: "<a href='https://openfreemap.org'>OpenFreeMap</a> | <a href='https://openmaptiles.org'>OpenMapTiles</a> | <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>",
+  roadmap: "<a href='https://openfreemap.org/'>OpenFreeMap</a> | <a href='https://openmaptiles.org/'>OpenMapTiles</a> | <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>",
   satellite: "<a href='https://www.esri.com/'>Esri</a> | Maxar | Earthstar Geographics",
   terrain: "<a href='https://www.vedur.is/'>IMO</a> | Natural Science Institute of Iceland | <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>",
-  gray: "<a href='https://carto.com/attributions'>CARTO</a> | <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>",
   heatmap: "<a href='https://carto.com/attributions'>CARTO</a> | <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>",
 };
 const MOBILE_ATTRIBUTIONS = {
-  roadmap: "<a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>",
+  roadmap: "<a href='https://openfreemap.org/'>OFM</a> | <a href='https://www.openstreetmap.org/copyright'>OSM</a>",
   satellite: "<a href='https://www.esri.com/'>Esri</a>",
   terrain: "<a href='https://www.vedur.is/'>IMO</a> | <a href='https://www.openstreetmap.org/copyright'>OSM</a>",
-  gray: "<a href='https://carto.com/attributions'>CARTO</a> | <a href='https://www.openstreetmap.org/copyright'>OSM</a>",
   heatmap: "<a href='https://carto.com/attributions'>CARTO</a> | <a href='https://www.openstreetmap.org/copyright'>OSM</a>",
 };
 const FAULTS_ATTRIBUTION = "<a href='https://metadata.europe-geology.eu/record/basic/604a286d-bab0-46be-9e9e-46940a010833'>EGDI/HIKE, ISOR</a>";
-const ROADMAP_RASTER_FALLBACK = {
-  url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-  maxZoom: 19,
-  maxNativeZoom: 18,
-  subdomains: "abcd",
-};
+const MOBILE_FAULTS_ATTRIBUTION = "<a href='https://metadata.europe-geology.eu/record/basic/604a286d-bab0-46be-9e9e-46940a010833'>EGDI/HIKE</a>";
+const HIKE_METADATA_URL = "https://metadata.europe-geology.eu/record/basic/604a286d-bab0-46be-9e9e-46940a010833";
 
 // Prefer Icelandic names, fall back to local OSM name
 const IS_NAME_EXPR = ["coalesce", ["get", "name:is"], ["get", "name"]];
@@ -138,17 +233,28 @@ const GLACIER_FILTER = [
 ];
 
 const GLACIER_LABELS = [
-  { name: "Vatnajökull", lat: 64.42, lng: -16.80, minZoom: 4.5, priority: 1 },
-  { name: "Langjökull", lat: 64.73, lng: -19.90, minZoom: 4.5, priority: 2 },
-  { name: "Hofsjökull", lat: 64.82, lng: -18.90, minZoom: 4.5, priority: 3 },
-  { name: "Drangajökull", lat: 66.15, lng: -22.25, minZoom: 4.5, priority: 4 },
+  { name: "Vatnajökull", lat: 64.40, lng: -16.80, minZoom: 4.5, priority: 1 },
+  { name: "Langjökull", lat: 64.70, lng: -20.20, minZoom: 4.5, priority: 2 },
+  { name: "Hofsjökull", lat: 64.80, lng: -18.90, minZoom: 4.5, priority: 3 },
+  { name: "Drangajökull", lat: 66.20, lng: -22.20, minZoom: 4.5, priority: 4 },
   { name: "Snæfellsjökull", lat: 64.81, lng: -23.78, minZoom: 5.2, priority: 5 },
   { name: "Eiríksjökull", lat: 64.77, lng: -20.40, minZoom: 5.2, priority: 6 },
-  { name: "Mýrdalsjökull", lat: 63.65, lng: -19.10, minZoom: 5.4, priority: 7 },
-  { name: "Öræfajökull", lat: 64.03, lng: -16.65, minZoom: 6.0, priority: 8 },
-  { name: "Tungnafellsjökull", lat: 64.73, lng: -17.92, minZoom: 6.2, priority: 9 },
-  { name: "Eyjafjallajökull", lat: 63.64, lng: -19.62, minZoom: 6.4, priority: 10 },
+  { name: "Mýrdalsjökull", lat: 63.70, lng: -19.10, minZoom: 5.4, priority: 7 },
+  { name: "Öræfajökull", lat: 64.10, lng: -17.50, minZoom: 6.0, priority: 8 },
+  { name: "Tungnaárjökull", lat: 64.60, lng: -18.10, minZoom: 6.2, priority: 9 },
+  { name: "Eyjafjallajökull", lat: 63.60, lng: -19.60, minZoom: 6.4, priority: 10 },
 ];
+
+const GLACIER_LABELS_GEOJSON = {
+  type: "FeatureCollection",
+  features: GLACIER_LABELS.map(({ name, lat, lng, minZoom }) => ({
+    type: "Feature",
+    geometry: { type: "Point", coordinates: [lng, lat] },
+    properties: { name, minZoom },
+  })),
+};
+
+const HIDDEN_ROADMAP_LAYERS = new Set(["park", "landcover_wood"]);
 
 const getGlacierLabelSize = (zoom) => {
   if (zoom < 5.2) return 10;
@@ -207,6 +313,16 @@ const LABEL_THEMES = {
   },
 };
 
+const normalizeTextFont = (font) => {
+  const fallback = ["Noto Sans Regular"];
+  if (!font) return fallback;
+  if (!Array.isArray(font)) return fallback;
+  if (font.some((name) => typeof name === "string" && /open sans|arial unicode/i.test(name))) {
+    return fallback;
+  }
+  return font;
+};
+
 const insertGlacierLayers = (raw, layers) => {
   const source = Object.entries(raw.sources ?? {}).find(([, value]) => value?.type === "vector")?.[0];
   if (!source) return layers;
@@ -256,16 +372,19 @@ const insertGlacierLayers = (raw, layers) => {
 // labelsOnly=true draws a transparent symbol-only overlay for raster basemaps.
 const patchStyle = (raw, labelsOnly = false, labelTheme = "light") => {
   const theme = LABEL_THEMES[labelTheme] ?? LABEL_THEMES.light;
-  const hiddenRoadmapLayers = labelsOnly ? new Set() : new Set(["park", "landcover_wood"]);
   let layers = raw.layers
-    .filter(l => !hiddenRoadmapLayers.has(l.id))
+    .filter(l => labelsOnly || !HIDDEN_ROADMAP_LAYERS.has(l.id))
     .filter(l => !labelsOnly || (l.type === "symbol" && l.layout?.["text-field"]))
     .map(l => {
-
       if (!l.layout?.["text-field"]) return l;
       const layer = {
         ...l,
-        layout: { ...l.layout, "text-field": IS_NAME_EXPR },
+        layout: {
+          ...l.layout,
+          visibility: "visible",
+          "text-field": IS_NAME_EXPR,
+          "text-font": normalizeTextFont(l.layout["text-font"]),
+        },
       };
       if (labelsOnly) {
         layer.paint = {
@@ -290,6 +409,21 @@ const patchStyle = (raw, labelsOnly = false, labelTheme = "light") => {
     layers = insertGlacierLayers(raw, layers);
   }
   return { ...raw, layers };
+};
+
+const buildRasterStyleWithLabels = (rasterStyle, rawOpenFreeMapStyle, labelTheme = "light") => {
+  const labelStyle = patchStyle(rawOpenFreeMapStyle, true, labelTheme);
+  return {
+    ...labelStyle,
+    sources: {
+      ...rasterStyle.sources,
+      ...labelStyle.sources,
+    },
+    layers: [
+      ...rasterStyle.layers,
+      ...labelStyle.layers,
+    ],
+  };
 };
 
 const setupGlLayer = (gl, map, { layerId, zIndex = "200", onReady, withFullscreen = false }) => {
@@ -422,7 +556,7 @@ const CompactAttribution = ({ mapType, showFaults }) => {
     removeVerboseProviderAttributions(map);
     const attributions = isMobile ? MOBILE_ATTRIBUTIONS : COMPACT_ATTRIBUTIONS;
     const parts = [attributions[mapType] ?? attributions.roadmap];
-    if (showFaults) parts.push(FAULTS_ATTRIBUTION);
+    if (showFaults) parts.push(isMobile ? MOBILE_FAULTS_ATTRIBUTION : FAULTS_ATTRIBUTION);
     const compact = parts.join(" | ");
     control.addAttribution(compact);
     const keep = new Set([compact]);
@@ -512,29 +646,6 @@ const removeMaplibreLayer = (map, gl, layerId) => {
   );
 };
 
-const addRasterRoadmapFallback = (map, onReady) => {
-  const layer = L.tileLayer(ROADMAP_RASTER_FALLBACK.url, {
-    attribution: "",
-    maxZoom: ROADMAP_RASTER_FALLBACK.maxZoom,
-    maxNativeZoom: ROADMAP_RASTER_FALLBACK.maxNativeZoom,
-    subdomains: ROADMAP_RASTER_FALLBACK.subdomains,
-    zIndex: 1,
-    ...TILE_PROPS,
-  });
-
-  if (onReady) layer.once("load", onReady);
-  layer.addTo(map);
-
-  return () => {
-    if (onReady) layer.off("load", onReady);
-    try {
-      if (map.hasLayer(layer)) map.removeLayer(layer);
-    } catch {
-      ignoreCleanupError();
-    }
-  };
-};
-
 const createMaplibreLayer = (map, options) => {
   let gl = null;
   try {
@@ -557,51 +668,6 @@ const removePane = (map, paneName) => {
   }
   if (map._panes) delete map._panes[paneName];
   if (map._paneRenderers) delete map._paneRenderers[paneName];
-};
-
-const MaplibreVectorLayer = ({ onReady }) => {
-  const map = useMap();
-  const cleanupRef = useRef(() => {});
-
-  useEffect(() => {
-    let dead = false;
-
-    const activateRasterFallback = () => {
-      if (dead) return;
-      cleanupRef.current();
-      cleanupRef.current = addRasterRoadmapFallback(map, onReady);
-    };
-
-    fetchRawStyle()
-      .then(raw => {
-        if (dead) return;
-        const layerId = "roadmap-positron";
-        const gl = createMaplibreLayer(map, {
-          layerId,
-          style: patchStyle(raw),
-          attribution: "",
-          fadeDuration: 0,
-          collectResourceTiming: false,
-          trackResize: false,
-          pixelRatio: 1,
-          maxTileCacheSize: 20,
-          antialias: false,
-        });
-
-        if (!gl) {
-          activateRasterFallback();
-          return;
-        }
-
-        const teardown = setupGlLayer(gl, map, { layerId, zIndex: "200", onReady, withFullscreen: true });
-        cleanupRef.current = () => { teardown(); removeMaplibreLayer(map, gl, layerId); };
-      })
-      .catch(() => activateRasterFallback());
-
-    return () => { dead = true; cleanupRef.current(); cleanupRef.current = () => {}; };
-  }, [map, onReady]);
-
-  return null;
 };
 
 const MaplibreLabelOverlay = ({ paneName, paneZIndex, labelTheme = "light" }) => {
@@ -690,7 +756,22 @@ const HeatmapTileLayers = ({ onReady }) => {
 };
 
 const TileLayerManager = ({ mapType, onReady }) => {
-  if (mapType === "roadmap") return <MaplibreVectorLayer onReady={onReady} />;
+  if (mapType === "roadmap") {
+    const layer = TILE_LAYERS.roadmap;
+    return (
+      <TileLayer
+        key={mapType}
+        url={layer.url}
+        attribution=""
+        maxZoom={layer.maxZoom}
+        maxNativeZoom={layer.maxNativeZoom}
+        subdomains={layer.subdomains}
+        zIndex={1}
+        eventHandlers={{ load: onReady }}
+        {...TILE_PROPS}
+      />
+    );
+  }
   if (mapType === "heatmap") {
     return (
       <>
@@ -699,7 +780,7 @@ const TileLayerManager = ({ mapType, onReady }) => {
       </>
     );
   }
-  if (mapType === "satellite" || mapType === "terrain" || mapType === "gray") {
+  if (mapType === "satellite" || mapType === "terrain") {
     const layer = TILE_LAYERS[mapType];
     return (
       <>
@@ -737,22 +818,15 @@ const TileLayerManager = ({ mapType, onReady }) => {
   );
 };
 
-// Bounding box used to auto-fit Iceland on any screen size.
-const ICELAND_FIT_BOUNDS = [[63.0, -24.5], [66.6, -13.0]];
-
-// Fit Iceland to the viewport on initial mount, then lock minZoom to that level
-// so the user cannot zoom out further than the "full island" view on any screen.
+// Place Iceland in the usable map area, accounting for the left control panel.
 const FitIcelandOnReady = () => {
   const map = useMap();
   const didFit = useRef(false);
   useEffect(() => {
     if (didFit.current) return;
     didFit.current = true;
-    map.fitBounds(ICELAND_FIT_BOUNDS, { padding: [10, 10], animate: false });
-    const fitZoom = map.getBoundsZoom(L.latLngBounds(ICELAND_FIT_BOUNDS), false, [10, 10]);
-    const minZoom = Math.max(4.5, fitZoom - 1.0);
-    map.setMinZoom(minZoom);
-    map.setView(map.getCenter(), minZoom, { animate: false });
+    const view = getDefaultLeafletView();
+    map.setView(view.center, view.zoom, { animate: false });
   }, [map]);
   return null;
 };
@@ -764,7 +838,8 @@ const MapViewResetter = ({ trigger }) => {
   useEffect(() => {
     if (trigger === prev.current) return;
     prev.current = trigger;
-    map.fitBounds(ICELAND_FIT_BOUNDS, { padding: [10, 10], animate: true });
+    const view = getDefaultLeafletView();
+    map.setView(view.center, view.zoom, { animate: true });
   }, [trigger, map]);
   return null;
 };
@@ -789,49 +864,6 @@ const MapUiResizeHandler = () => {
     };
     window.addEventListener('quake-map-ui-resize', handleResize);
     return () => window.removeEventListener('quake-map-ui-resize', handleResize);
-  }, [map]);
-  return null;
-};
-
-// Prevents scroll-wheel events from accumulating while a zoom animation is
-// still playing. Without this, fast scrolling queues extra zoom steps during
-// the ~250 ms CSS animation, causing multi-zoom and direction-inversion bugs.
-//
-// We patch _performZoom (not disable/enable the handler) so that Leaflet's
-// wheel listener remains active and keeps calling preventDefault() on every
-// wheel event — preventing the browser from zooming the page instead.
-const ZoomAnimGuard = () => {
-  const map = useMap();
-  useEffect(() => {
-    const handler = map.scrollWheelZoom;
-    const original = handler._performZoom.bind(handler);
-    let animating = false;
-
-    let lastZoom = 0;
-    const COOLDOWN = 250; // matches Leaflet's CSS zoom animation duration
-
-    handler._performZoom = function () {
-      const now = Date.now();
-      if (animating || now - lastZoom < COOLDOWN) {
-        // Discard accumulated delta so it doesn't bleed into the next zoom.
-        this._delta = 0;
-        this._startTime = null;
-        return;
-      }
-      lastZoom = now;
-      original();
-    };
-
-    const lock   = () => { animating = true; };
-    const unlock = () => { animating = false; };
-    map.on("zoomstart", lock);
-    map.on("zoomend",   unlock);
-
-    return () => {
-      handler._performZoom = original;
-      map.off("zoomstart", lock);
-      map.off("zoomend",   unlock);
-    };
   }, [map]);
   return null;
 };
@@ -1122,157 +1154,16 @@ const GridOverlay = ({ show, isDarkMode, mapType, emphasizeLabels = false }) => 
   return null;
 };
 
-const quakeKey = (q) => `${q["Date-time"]}_${q.Latitude}_${q.Longitude}`;
-
 const getMarkerRadius = (zoom, isSelected) => {
   const base =
-    zoom <= 5  ? 1 :
-    zoom <= 6  ? 1.5 :
-    zoom <= 7  ? 2 :
-    zoom <= 8  ? 2.5 :
-    zoom <= 9  ? 3 :
-    zoom <= 10 ? 3.5 :
-    zoom <= 11 ? 4 : 4.5;
+    zoom <= 5  ? 2.5 :
+    zoom <= 6  ? 2.5 :
+    zoom <= 7  ? 3 :
+    zoom <= 8  ? 3.5 :
+    zoom <= 9  ? 3.5 :
+    zoom <= 10 ? 4 :
+    zoom <= 11 ? 4.5 : 5;
   return isSelected ? base + 2 : base;
-};
-
-const getQuakeMarkerStyle = (color, isSelected, zoom) => ({
-  radius: getMarkerRadius(zoom, isSelected),
-  fillColor: color,
-  fillOpacity: 1,
-  stroke: isSelected,
-  color: "#ffffff",
-  weight: isSelected ? 2 : 0,
-  opacity: 1,
-});
-
-const hasCoarsePointer = () =>
-  typeof window !== "undefined" &&
-  typeof window.matchMedia === "function" &&
-  window.matchMedia("(pointer: coarse)").matches;
-
-const getMarkerHitRadius = (zoom) => {
-  const visualRadius = getMarkerRadius(zoom, false);
-  const minimumHitRadius = hasCoarsePointer() ? 16 : 12;
-  return Math.max(minimumHitRadius, visualRadius + 6);
-};
-
-const getQuakeHitTargetStyle = (zoom) => ({
-  radius: getMarkerHitRadius(zoom),
-  fillColor: "transparent",
-  fillOpacity: 0,
-  stroke: false,
-  opacity: 0,
-  bubblingMouseEvents: false,
-  className: "earthquake-hit-target",
-});
-
-const EarthquakeMarkers = ({ earthquakes, markerIcons, selectedEarthquake, onMarkerClick, visible }) => {
-  const map = useMap();
-  const layerGroupRef = useRef(null);
-  const markersMapRef = useRef(new Map());
-  const prevSelectedRef = useRef(null);
-  const selectedEqRef = useRef(selectedEarthquake);
-  const markerIconsRef = useRef(markerIcons);
-  selectedEqRef.current = selectedEarthquake;
-  markerIconsRef.current = markerIcons;
-
-  useEffect(() => {
-    const lg = L.layerGroup().addTo(map);
-    layerGroupRef.current = lg;
-    return () => {
-      map.removeLayer(lg);
-      layerGroupRef.current = null;
-    };
-  }, [map]);
-
-  useEffect(() => {
-    const lg = layerGroupRef.current;
-    if (!lg) return;
-    if (visible) { if (!map.hasLayer(lg)) lg.addTo(map); }
-    else { map.removeLayer(lg); }
-  }, [map, visible]);
-
-  useEffect(() => {
-    const lg = layerGroupRef.current;
-    if (!lg) return;
-    lg.clearLayers();
-    markersMapRef.current = new Map();
-
-    const sel = selectedEqRef.current;
-    const zoom = map.getZoom();
-    // Sort ascending by magnitude so higher-magnitude markers are added last
-    // and appear on top in the SVG stack (higher effective z-index).
-    const sorted = earthquakes
-      .map((q, i) => ({ q, i, mag: parseFloat(q.Mw_mean) || 0 }))
-      .sort((a, b) => a.mag - b.mag);
-
-    sorted.forEach(({ q: quake, i: index }) => {
-      const lat = parseFloat(quake.Latitude);
-      const lng = parseFloat(quake.Longitude);
-      if (isNaN(lat) || isNaN(lng)) return;
-
-      const isSelected =
-        sel &&
-        quake["Date-time"] === sel["Date-time"] &&
-        quake.Latitude === sel.Latitude &&
-        quake.Longitude === sel.Longitude;
-
-      const { color } = markerIcons[index] || {};
-      const hitMarker = L.circleMarker([lat, lng], getQuakeHitTargetStyle(zoom))
-        .on("click", (e) => { L.DomEvent.stopPropagation(e); onMarkerClick(quake); })
-        .addTo(lg);
-
-      const marker = L.circleMarker([lat, lng], {
-        ...getQuakeMarkerStyle(color, isSelected, zoom),
-        interactive: false,
-      })
-        .addTo(lg);
-      if (isSelected) marker.bringToFront();
-
-      markersMapRef.current.set(quakeKey(quake), { marker, hitMarker, quake, index });
-    });
-  }, [map, earthquakes, markerIcons, onMarkerClick]);
-
-  // Resize all markers when zoom changes
-  useEffect(() => {
-    const handleZoom = () => {
-      const zoom = map.getZoom();
-      const sel = selectedEqRef.current;
-      markersMapRef.current.forEach(({ marker, hitMarker, quake }) => {
-        const isSelected =
-          sel &&
-          quake["Date-time"] === sel["Date-time"] &&
-          quake.Latitude === sel.Latitude &&
-          quake.Longitude === sel.Longitude;
-        marker.setRadius(getMarkerRadius(zoom, isSelected));
-        hitMarker.setRadius(getMarkerHitRadius(zoom));
-      });
-    };
-    map.on("zoomend", handleZoom);
-    return () => map.off("zoomend", handleZoom);
-  }, [map]);
-
-  useEffect(() => {
-    const prev = prevSelectedRef.current;
-    prevSelectedRef.current = selectedEarthquake;
-
-    const zoom = map.getZoom();
-    const updateMarker = (quake, isSelected) => {
-      if (!quake) return;
-      const entry = markersMapRef.current.get(quakeKey(quake));
-      if (!entry) return;
-      const { color } = markerIconsRef.current[entry.index] || {};
-      entry.marker.setStyle(getQuakeMarkerStyle(color, isSelected, zoom));
-      if (isSelected) entry.marker.bringToFront();
-      else entry.marker.bringToBack();
-    };
-
-    updateMarker(prev, false);
-    updateMarker(selectedEarthquake, true);
-  }, [map, selectedEarthquake]);
-
-  return null;
 };
 
 // Color ramp: transparent → dark blue → blue → teal → amber → orange → deep red
@@ -1305,6 +1196,8 @@ const getHeatWeight = (magnitude) => {
   return 0.20;
 };
 
+const HEATMAP_PANE = "heatmap-pane";
+
 const HeatmapLayer = ({ earthquakes }) => {
   const map = useMap();
   const heatRef = useRef(null);
@@ -1315,6 +1208,12 @@ const HeatmapLayer = ({ earthquakes }) => {
     window.L = L;
     import("leaflet.heat").then(() => setPluginReady(true));
   }, []);
+
+  useEffect(() => {
+    const pane = map.getPane(HEATMAP_PANE) ?? map.createPane(HEATMAP_PANE);
+    pane.style.zIndex = "620";
+    pane.style.pointerEvents = "none";
+  }, [map]);
 
   const rebuild = useCallback(() => {
     if (!pluginReady) return;
@@ -1335,6 +1234,7 @@ const HeatmapLayer = ({ earthquakes }) => {
     }).filter(Boolean);
 
     heatRef.current = L.heatLayer(points, {
+      pane: HEATMAP_PANE,
       ...getHeatOptions(zoom),
       maxZoom: 6,
       max: 2.5,
@@ -1348,6 +1248,7 @@ const HeatmapLayer = ({ earthquakes }) => {
     // because Leaflet listens on the container, not on overlay canvases.
     if (heatRef.current._canvas) {
       heatRef.current._canvas.style.pointerEvents = "none";
+      heatRef.current._canvas.style.zIndex = "620";
     }
   }, [map, earthquakes, pluginReady]);
 
@@ -1389,6 +1290,475 @@ const HeatmapLegend = () => {
   );
 };
 
+const ML_HIKE_WFS_URL = "https://maps.europe-geology.eu/wfs/";
+const ML_ICELAND_BBOX = "-24.8,63.0,-13.0,66.7";
+let mapLibreFaultsGeojson = null;
+let mapLibreFaultsPromise = null;
+
+const fetchMapLibreFaults = () => {
+  if (mapLibreFaultsGeojson) return Promise.resolve(mapLibreFaultsGeojson);
+  if (!mapLibreFaultsPromise) {
+    const params = new URLSearchParams({
+      service: "WFS",
+      version: "1.0.0",
+      request: "GetFeature",
+      typename: "hike_detail_layer",
+      outputformat: "geojson",
+      bbox: ML_ICELAND_BBOX,
+    });
+    mapLibreFaultsPromise = fetch(`${ML_HIKE_WFS_URL}?${params.toString()}`)
+      .then((response) => {
+        if (!response.ok) throw new Error(`Faults WFS request failed: ${response.status}`);
+        return response.json();
+      })
+      .then((geojson) => {
+        mapLibreFaultsGeojson = {
+          ...geojson,
+          features: (geojson?.features ?? []).filter((feature) => {
+            const props = feature?.properties ?? {};
+            return props.country_cd === "IS" && props.observ_meth !== "sonar survey";
+          }),
+        };
+        return mapLibreFaultsGeojson;
+      })
+      .catch((error) => {
+        mapLibreFaultsPromise = null;
+        throw error;
+      });
+  }
+  return mapLibreFaultsPromise;
+};
+
+const isSameEarthquake = (a, b) =>
+  !!a && !!b &&
+  a["Date-time"] === b["Date-time"] &&
+  a.Latitude === b.Latitude &&
+  a.Longitude === b.Longitude;
+
+const buildGridGeojson = (bounds, zoom) => {
+  if (!bounds) return { type: "FeatureCollection", features: [] };
+  const west = bounds.getWest();
+  const east = bounds.getEast();
+  const south = bounds.getSouth();
+  const north = bounds.getNorth();
+  const { lngGridSpacing } = getGridConfig(zoom);
+  const latGridSpacing = lngGridSpacing / 2;
+  const normalize = (value, step) => Number((Math.round(value / step) * step).toFixed(6));
+  const features = [];
+
+  const startLat = Math.floor(south / latGridSpacing) * latGridSpacing;
+  const endLat = Math.ceil(north / latGridSpacing) * latGridSpacing;
+  const startLng = Math.floor(west / lngGridSpacing) * lngGridSpacing;
+  const endLng = Math.ceil(east / lngGridSpacing) * lngGridSpacing;
+
+  for (let lat = startLat; lat <= endLat; lat = normalize(lat + latGridSpacing, latGridSpacing)) {
+    if (lat < -85 || lat > 85) continue;
+    features.push({
+      type: "Feature",
+      properties: {},
+      geometry: { type: "LineString", coordinates: [[west - 2, lat], [east + 2, lat]] },
+    });
+  }
+  for (let lng = startLng; lng <= endLng; lng = normalize(lng + lngGridSpacing, lngGridSpacing)) {
+    features.push({
+      type: "Feature",
+      properties: {},
+      geometry: { type: "LineString", coordinates: [[lng, south - 1], [lng, north + 1]] },
+    });
+  }
+  return { type: "FeatureCollection", features };
+};
+
+const MapLibreVolcanoMarkers = ({ volcanoes, selectedVolcano, onSelect }) => (
+  <>
+    {volcanoes.map((volcano, index) => {
+      const lat = Number(volcano.latitude);
+      const lng = Number(volcano.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      const isSelected = selectedVolcano?.name === volcano.name;
+      return (
+        <Marker
+          key={`volcano-${index}`}
+          longitude={lng}
+          latitude={lat}
+          anchor="center"
+          onClick={(event) => {
+            event.originalEvent.stopPropagation();
+            onSelect(volcano);
+          }}
+        >
+          <div
+            className={`maplibre-volcano-marker${isSelected ? " is-selected" : ""}`}
+            title={volcano.name}
+          />
+        </Marker>
+      );
+    })}
+  </>
+);
+
+const MapLibreFaultsLegendControl = () => {
+  useControl(() => {
+    let container = null;
+    return {
+      onAdd: () => {
+        container = document.createElement("div");
+        container.className = "maplibregl-ctrl faults-legend-control maplibre-faults-legend";
+        container.innerHTML = `
+          <div class="tectonic-legend">
+            <div class="tectonic-legend__title">Faults / Fissures</div>
+            <div class="tectonic-legend__row"><span class="tec-swatch tec-swatch--fault-line"></span><span>Fault</span></div>
+            <a class="tectonic-legend__source" href="${HIKE_METADATA_URL}" target="_blank" rel="noreferrer">Source: EGDI/HIKE, ISOR</a>
+          </div>
+        `;
+        return container;
+      },
+      onRemove: () => {
+        container?.remove();
+        container = null;
+      },
+    };
+  }, { position: "bottom-right" });
+  return null;
+};
+const MapLibreFaultsOverlay = ({ show }) => {
+  const [geojson, setGeojson] = useState(null);
+
+  useEffect(() => {
+    if (!show) return undefined;
+    let dead = false;
+    fetchMapLibreFaults()
+      .then((data) => {
+        if (!dead) setGeojson(data);
+      })
+      .catch((error) => console.error(error));
+    return () => { dead = true; };
+  }, [show]);
+
+  if (!show || !geojson) return null;
+
+  return (
+    <>
+      <Source id="faults" type="geojson" data={geojson}>
+        <Layer
+          id="faults-lines"
+          type="line"
+          paint={{
+            "line-color": "#8f1f1f",
+            "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.8, 8, 1.4, 12, 2.2],
+            "line-opacity": 0.92,
+          }}
+          layout={{ "line-cap": "round", "line-join": "round" }}
+        />
+      </Source>
+    </>
+  );
+};
+
+const MapLibreEarthquakeMap = ({
+  earthquakes,
+  volcanoes,
+  maxMagnitude,
+  mapType,
+  showGrid,
+  showFaults,
+  colorOwner,
+  isDarkMode,
+  selectedEarthquake,
+  selectedVolcano,
+  onMarkerClick,
+  onMapClick,
+  onVolcanoClick,
+  onReady,
+  resetViewTrigger,
+}) => {
+  const mapRef = useRef(null);
+  const deckOverlayRef = useRef(null);
+  const deckOverlayAttachedRef = useRef(false);
+  const deckOverlayMapRef = useRef(null);
+  const clickedEarthquakeRef = useRef(false);
+  const hoveringEarthquakeRef = useRef(false);
+  const [viewZoom, setViewZoom] = useState(ICELAND_VIEW.zoom);
+  const [gridGeojson, setGridGeojson] = useState({ type: "FeatureCollection", features: [] });
+  const [styledMapStyle, setStyledMapStyle] = useState(null);
+  const initialViewState = useMemo(() => getDefaultMapLibreView(), []);
+
+  if (!deckOverlayRef.current) {
+    deckOverlayRef.current = new MapboxOverlay({
+      layers: [],
+      getCursor: ({ isHovering }) => (isHovering ? "pointer" : "grab"),
+    });
+  }
+
+  const attachDeckOverlay = useCallback((map) => {
+    const overlay = deckOverlayRef.current;
+    if (!map || !overlay) return;
+    if (deckOverlayAttachedRef.current && deckOverlayMapRef.current === map) return;
+
+    if (deckOverlayAttachedRef.current && deckOverlayMapRef.current) {
+      try {
+        deckOverlayMapRef.current.removeControl(overlay);
+      } catch {
+        ignoreCleanupError();
+      }
+    }
+
+    map.addControl(overlay);
+    deckOverlayMapRef.current = map;
+    deckOverlayAttachedRef.current = true;
+  }, []);
+
+  const applyDefaultView = useCallback((map, duration = 0) => {
+    if (!map) return;
+    const view = getDefaultMapLibreView();
+    const options = {
+      center: [view.longitude, view.latitude],
+      zoom: view.zoom,
+      bearing: 0,
+      pitch: 0,
+    };
+    if (duration > 0) {
+      map.easeTo({ ...options, duration });
+    } else {
+      map.jumpTo(options);
+    }
+    setViewZoom(view.zoom);
+  }, []);
+
+  const deckData = useMemo(() => {
+    const timelinePalette = mapType === "satellite" ? SATELLITE_TIMELINE_YEAR_STOPS : TIMELINE_YEAR_STOPS;
+    return earthquakes
+      .map((quake) => {
+        const lat = Number(quake.Latitude);
+        const lng = Number(quake.Longitude);
+        const mag = Number(quake.Mw_mean) || 0;
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        const color =
+          colorOwner === "timeline"
+            ? getTimelineColorForDate(quake["Date-time"], timelinePalette)
+            : getMarkerColor(mag, maxMagnitude);
+        return { quake, lat, lng, mag, color: colorStringToDeckRgba(color) };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.mag - b.mag);
+  }, [earthquakes, colorOwner, mapType, maxMagnitude]);
+
+  useEffect(() => {
+    const overlay = deckOverlayRef.current;
+    if (!overlay) return;
+
+    const hitLayer = new ScatterplotLayer({
+      id: "earthquake-hit-targets",
+      data: deckData,
+      getPosition: d => [d.lng, d.lat],
+      getFillColor: [0, 0, 0, 0],
+      getRadius: d => getDeckMarkerRadius(viewZoom, isSameEarthquake(d.quake, selectedEarthquake)) * 3,
+      radiusUnits: "pixels",
+      pickable: true,
+      opacity: 0,
+      stroked: false,
+      filled: true,
+      radiusScale: 1,
+      onClick: (info) => {
+        if (!info.object) return;
+        clickedEarthquakeRef.current = true;
+        onMarkerClick(info.object.quake);
+      },
+      onHover: (info) => {
+        const canvas = mapRef.current?.getMap()?.getCanvas();
+        hoveringEarthquakeRef.current = !!info.object;
+        if (canvas) canvas.style.cursor = info.object ? "pointer" : "";
+      },
+      updateTriggers: {
+        getRadius: [viewZoom, selectedEarthquake],
+      },
+    });
+
+    const dotLayer = new ScatterplotLayer({
+      id: "earthquakes",
+      data: deckData,
+      getPosition: d => [d.lng, d.lat],
+      getFillColor: d => d.color,
+      getRadius: d => getDeckMarkerRadius(viewZoom, isSameEarthquake(d.quake, selectedEarthquake)),
+      radiusUnits: "pixels",
+      pickable: false,
+      opacity: 0.88,
+      stroked: true,
+      filled: true,
+      radiusScale: 1,
+      getLineColor: d => isSameEarthquake(d.quake, selectedEarthquake) ? [255, 255, 255, 255] : [255, 255, 255, 0],
+      getLineWidth: d => isSameEarthquake(d.quake, selectedEarthquake) ? 2 : 0,
+      lineWidthUnits: "pixels",
+      updateTriggers: {
+        getFillColor: [deckData],
+        getRadius: [viewZoom, selectedEarthquake],
+        getLineColor: [selectedEarthquake],
+        getLineWidth: [selectedEarthquake],
+      },
+    });
+
+    overlay.setProps({ layers: [hitLayer, dotLayer] });
+  }, [deckData, onMarkerClick, selectedEarthquake, viewZoom]);
+
+  useEffect(() => {
+    const map = mapRef.current?.getMap();
+    attachDeckOverlay(map);
+  }, [attachDeckOverlay, mapType, styledMapStyle]);
+
+  useEffect(() => () => {
+    const currentMap = deckOverlayMapRef.current ?? mapRef.current?.getMap();
+    const canvas = currentMap?.getCanvas();
+    if (canvas) canvas.style.cursor = "";
+    const overlay = deckOverlayRef.current;
+    if (currentMap && overlay && deckOverlayAttachedRef.current) {
+      currentMap.removeControl(overlay);
+      deckOverlayAttachedRef.current = false;
+      deckOverlayMapRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!resetViewTrigger) return;
+    const map = mapRef.current?.getMap();
+    applyDefaultView(map, 500);
+  }, [applyDefaultView, resetViewTrigger]);
+
+  const updateGrid = useCallback(() => {
+    const map = mapRef.current?.getMap();
+    if (!map || !showGrid) return;
+    setGridGeojson(buildGridGeojson(map.getBounds(), map.getZoom()));
+  }, [showGrid]);
+
+  useEffect(() => {
+    if (!showGrid) {
+      setGridGeojson({ type: "FeatureCollection", features: [] });
+      return;
+    }
+    updateGrid();
+  }, [showGrid, updateGrid]);
+
+  useEffect(() => {
+    onReady();
+  }, [mapType, onReady]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (mapType === "heatmap") {
+      setStyledMapStyle(null);
+      return undefined;
+    }
+    fetchRawStyle()
+      .then((raw) => {
+        if (cancelled) return;
+        if (mapType === "roadmap") {
+          setStyledMapStyle(patchStyle(raw));
+          return;
+        }
+        const rasterStyle = MAPLIBRE_STYLES[mapType] ?? MAPLIBRE_STYLES.roadmap;
+        const labelTheme = mapType === "satellite" ? "dark" : "light";
+        setStyledMapStyle(buildRasterStyleWithLabels(rasterStyle, raw, labelTheme));
+      })
+      .catch(() => {
+        if (!cancelled) setStyledMapStyle(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mapType]);
+
+  const handleMapLoad = useCallback((event) => {
+    const map = event.target;
+    attachDeckOverlay(map);
+    applyDefaultView(map, 0);
+    updateGrid();
+    onReady();
+  }, [applyDefaultView, attachDeckOverlay, onReady, updateGrid]);
+
+  const handleMapClick = useCallback(() => {
+    setTimeout(() => {
+      if (clickedEarthquakeRef.current) {
+        clickedEarthquakeRef.current = false;
+        return;
+      }
+      onMapClick();
+    }, 0);
+  }, [onMapClick]);
+
+  const activeMapStyle = styledMapStyle ?? (MAPLIBRE_STYLES[mapType] ?? MAPLIBRE_STYLES.roadmap);
+
+  return (
+    <MapLibreMap
+      key={mapType}
+      ref={mapRef}
+      initialViewState={initialViewState}
+      style={{ width: "100vw", height: "100vh" }}
+      mapStyle={activeMapStyle}
+      maxBounds={ICELAND_BOUNDS_LNG_LAT}
+      minZoom={4}
+      maxZoom={18}
+      renderWorldCopies={false}
+      attributionControl={true}
+      onLoad={handleMapLoad}
+      onMove={(event) => setViewZoom(event.viewState.zoom)}
+      onMoveEnd={updateGrid}
+      onZoomEnd={updateGrid}
+      onClick={handleMapClick}
+      cursor={hoveringEarthquakeRef.current ? "pointer" : "grab"}
+    >
+      <NavigationControl position="bottom-right" />
+      {showFaults && <MapLibreFaultsLegendControl />}
+      <MapLibreScaleControl position="bottom-right" />
+      {showGrid && (
+        <Source id="grid" type="geojson" data={gridGeojson}>
+          <Layer
+            id="grid-lines"
+            type="line"
+            paint={{
+              "line-color": isDarkMode || mapType === "satellite" ? "#ddd8cc" : "#666666",
+              "line-width": 0.5,
+              "line-opacity": 0.55,
+            }}
+          />
+        </Source>
+      )}
+      {mapType === "roadmap" && (
+        <Source id="glacier-labels-src" type="geojson" data={GLACIER_LABELS_GEOJSON}>
+          {GLACIER_LABELS.map(({ name, minZoom }) => (
+            <Layer
+              key={`glacier-label-${name}`}
+              id={`glacier-label-${name}`}
+              type="symbol"
+              minzoom={minZoom}
+              filter={["==", ["get", "name"], name]}
+              layout={{
+                "text-field": ["get", "name"],
+                "text-font": ["Noto Sans Bold"],
+                "text-size": ["interpolate", ["linear"], ["zoom"], 4.5, 10, 6, 11, 8, 13],
+                "text-anchor": "center",
+                "text-allow-overlap": false,
+                "text-ignore-placement": false,
+              }}
+              paint={{
+                "text-color": "#0369a1",
+                "text-halo-color": "#ffffff",
+                "text-halo-width": 2,
+              }}
+            />
+          ))}
+        </Source>
+      )}
+      <MapLibreFaultsOverlay show={showFaults} />
+      {volcanoes.length > 0 && (
+        <MapLibreVolcanoMarkers
+          volcanoes={volcanoes}
+          selectedVolcano={selectedVolcano}
+          onSelect={onVolcanoClick}
+        />
+      )}
+    </MapLibreMap>
+  );
+};
+
 const MapComponent = ({
   earthquakes,
   volcanoes = [],
@@ -1410,6 +1780,13 @@ const MapComponent = ({
   const [loadedMapType, setLoadedMapType] = useState(null);
   const mapReady = loadedMapType === mapType;
   const handleMapReady = useCallback(() => setLoadedMapType(mapType), [mapType]);
+
+  useEffect(() => {
+    setLoadedMapType(null);
+    if (mapType !== "heatmap") return undefined;
+    const id = window.setTimeout(() => setLoadedMapType("heatmap"), 600);
+    return () => window.clearTimeout(id);
+  }, [mapType]);
 
   // Clear selections when switching to heatmap
   useEffect(() => {
@@ -1461,19 +1838,6 @@ const MapComponent = ({
   const handleVolcanoClick = useCallback((volcano) => { setSelectedEarthquake(null); onSelectVolcano(volcano);    }, [onSelectVolcano]);
   const handleMapClick     = useCallback(()        => { setSelectedEarthquake(null); onSelectVolcano(null);       }, [onSelectVolcano]);
 
-  const markerIcons = useMemo(() =>
-    earthquakes.map((quake) => {
-      const magnitude = parseFloat(quake.Mw_mean);
-      const timelinePalette = mapType === "satellite" ? SATELLITE_TIMELINE_YEAR_STOPS : TIMELINE_YEAR_STOPS;
-      const color =
-        colorOwner === "timeline"
-          ? getTimelineColorForDate(quake["Date-time"], timelinePalette)
-          : getMarkerColor(magnitude, maxMagnitude);
-      return { px: MARKER_PX, color };
-    }),
-    [earthquakes, colorOwner, mapType, maxMagnitude]
-  );
-
   return (
     <div
       className={`map-container${rightPanelOpen ? " right-panel-open" : ""}${mobileLeftPanelOpen ? " mobile-left-panel-open" : ""}`}
@@ -1485,60 +1849,69 @@ const MapComponent = ({
         </div>
       )}
 
-      <MapContainer
-        center={CENTER}
-        zoom={6}
-        minZoom={4.5}
-
-        style={{ width: "100vw", height: "100vh" }}
-        zoomControl={false}
-        attributionControl={false}
-        zoomAnimation={true}
-        fadeAnimation={true}
-        markerZoomAnimation={true}
-        preferCanvas={false}       // SVG renderer: right-click on markers shows normal browser context menu (canvas would show "Save image as")
-        zoomSnap={0.5}             // snap to 0.5 zoom increments instead of integers — smoother steps
-        zoomDelta={0.5}            // zoom button / keyboard step = 0.5 levels (does NOT affect scroll wheel)
-        wheelPxPerZoomLevel={120}  // 120px of scroll per zoom level → ~1 notch = 0.5 levels (one snap step)
-      >
-        <TileLayerManager key={mapType} mapType={mapType} onReady={handleMapReady} />
-        <FitIcelandOnReady />
-        <MapViewResetter trigger={resetViewTrigger} />
-        <MapReadyHandler />
-        <MapUiResizeHandler />
-        <ZoomAnimGuard />
-        <RightClickHandler />
-        <AttributionControl position="bottomright" prefix={false} />
-        <CompactAttribution mapType={mapType} showFaults={showFaults} />
-        <ScaleControl position="bottomright" />
-        <GlacierLabelsOverlay visible={mapReady && (mapType === "roadmap" || mapType === "satellite")} />
-        <GridOverlay show={showGrid} isDarkMode={isDarkMode} mapType={mapType} emphasizeLabels={showFaults} />
-        <FaultsOverlay show={showFaults} />
-        <MapClickHandler onClick={handleMapClick} />
-
-        {mapReady && (
-          <EarthquakeMarkers
-            earthquakes={earthquakes}
-            markerIcons={markerIcons}
-            selectedEarthquake={selectedEarthquake}
-            onMarkerClick={handleMarkerClick}
-            visible={mapType !== "heatmap"}
-          />
-        )}
-        {mapReady && mapType === "heatmap" && <HeatmapLayer earthquakes={earthquakes} />}
-
-        {mapReady && volcanoes.length > 0 &&
-          volcanoes.map((volcano, index) => (
-            <VolcanoMarker
-              key={`volcano-${index}`}
-              volcano={volcano}
-              onSelect={handleVolcanoClick}
-              isSelected={selectedVolcano?.name === volcano.name}
-            />
-          ))}
-      </MapContainer>
-
-      {mapType === "heatmap" && <HeatmapLegend />}
+      {mapType === "heatmap" ? (
+        <>
+          <MapContainer
+            center={CENTER}
+            zoom={4.5}
+            minZoom={4.5}
+            style={{ width: "100vw", height: "100vh" }}
+            zoomControl={false}
+            attributionControl={false}
+            zoomAnimation={true}
+            fadeAnimation={true}
+            markerZoomAnimation={true}
+            preferCanvas={true}
+            zoomSnap={0}
+            zoomDelta={0.25}
+            wheelDebounceTime={16}
+            wheelPxPerZoomLevel={160}
+          >
+            <TileLayerManager key={mapType} mapType={mapType} onReady={handleMapReady} />
+            <FitIcelandOnReady />
+            <MapViewResetter trigger={resetViewTrigger} />
+            <MapReadyHandler />
+            <MapUiResizeHandler />
+            <RightClickHandler />
+            <AttributionControl position="bottomright" prefix={false} />
+            <CompactAttribution mapType={mapType} showFaults={showFaults} />
+            <ScaleControl position="bottomright" />
+            <GlacierLabelsOverlay visible={false} />
+            <GridOverlay show={showGrid} isDarkMode={isDarkMode} mapType={mapType} emphasizeLabels={showFaults} />
+            <FaultsOverlay show={showFaults} />
+            <MapClickHandler onClick={handleMapClick} />
+            <HeatmapLayer earthquakes={earthquakes} />
+            {volcanoes.length > 0 &&
+              volcanoes.map((volcano, index) => (
+                <VolcanoMarker
+                  key={`volcano-${index}`}
+                  volcano={volcano}
+                  onSelect={handleVolcanoClick}
+                  isSelected={selectedVolcano?.name === volcano.name}
+                />
+              ))}
+          </MapContainer>
+          <HeatmapLegend />
+        </>
+      ) : (
+        <MapLibreEarthquakeMap
+          earthquakes={earthquakes}
+          volcanoes={volcanoes}
+          maxMagnitude={maxMagnitude}
+          mapType={mapType}
+          showGrid={showGrid}
+          showFaults={showFaults}
+          colorOwner={colorOwner}
+          isDarkMode={isDarkMode}
+          selectedEarthquake={selectedEarthquake}
+          selectedVolcano={selectedVolcano}
+          onMarkerClick={handleMarkerClick}
+          onMapClick={handleMapClick}
+          onVolcanoClick={handleVolcanoClick}
+          onReady={handleMapReady}
+          resetViewTrigger={resetViewTrigger}
+        />
+      )}
 
       {selectedEarthquake && (
         <div className="info-card info-card--earthquake">

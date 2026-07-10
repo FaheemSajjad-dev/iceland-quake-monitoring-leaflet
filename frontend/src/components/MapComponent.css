@@ -20,21 +20,42 @@
 }
 
 
-/* Smooth tile fade-in on load — prevents tiles from popping in abruptly */
 .leaflet-tile {
-  transition: opacity 0.15s linear;
   /* Prevent the browser from treating tiles as interactive images.
      Right-clicks fall through to the map container, which shows the
      normal page context menu instead of "Save image as / Copy image". */
   pointer-events: none !important;
+  transition: opacity 0.15s linear;
 }
 
-.earthquake-hit-target {
-  fill: transparent !important;
-  fill-opacity: 0 !important;
-  stroke: transparent !important;
-  stroke-opacity: 0 !important;
+.earthquake-canvas-layer {
+  position: absolute;
   pointer-events: all;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.maplibregl-map {
+  background: #d4d0cb;
+}
+
+.maplibre-volcano-marker {
+  width: 16px;
+  height: 16px;
+  background: #ff3c00;
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
+  cursor: pointer;
+}
+
+.maplibre-volcano-marker.is-selected {
+  width: 28px;
+  height: 28px;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+}
+
+.maplibre-faults-legend {
+  clear: both;
 }
 
 /* Map Type Selector (rendered inside LeftPanel) */
@@ -519,6 +540,7 @@
 
 /* Align scale bar bottom with the volcano/grid toggles (bottom: 39px); right matches left components (20px) */
 .leaflet-bottom.leaflet-right .leaflet-control-scale {
+  clear: both;
   margin-bottom: 29px; /* Leaflet adds ~10px default bottom padding → 10 + 29 = 39px */
   margin-right: 10px;  /* Leaflet default margin adds another 10px */
   transition: margin-right 0.25s ease;
@@ -534,7 +556,8 @@
 }
 
 .leaflet-bottom.leaflet-right .faults-legend-control {
-  margin-bottom: 30px;
+  clear: both;
+  margin-bottom: 10px;
   margin-right: 14px;
   transition: margin-right 0.25s ease;
 }
@@ -683,8 +706,8 @@
   }
 
   .leaflet-control-attribution {
-    max-width: calc(100vw - 96px);
-    font-size: 9px;
+    max-width: calc(48vw - 18px);
+    font-size: 8px;
     line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
@@ -692,6 +715,7 @@
   }
 
   .leaflet-bottom.leaflet-right .leaflet-control-scale {
+  clear: both;
     margin-bottom: 20px;
     margin-right: 8px;
     transform: scale(0.84);
@@ -699,10 +723,10 @@
   }
 
   .leaflet-bottom.leaflet-right .faults-legend-control {
-    margin-bottom: 22px;
+  clear: both;
+    margin-bottom: 8px;
     margin-right: 8px;
     transform: scale(0.86);
     transform-origin: bottom right;
   }
 }
-

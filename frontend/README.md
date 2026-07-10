@@ -6,10 +6,18 @@ React 18 + Vite frontend for the Iceland Earthquake Monitoring Leaflet app.
 
 - React 18 and Vite
 - react-leaflet 4, Leaflet, MapLibre GL, leaflet.heat
-- OpenFreeMap map tiles, IMO terrain tiles, Esri imagery, and CARTO basemaps
+- OpenFreeMap Positron, CARTO heatmap tiles, IMO terrain tiles, Esri imagery, and MapLibre label overlays
 - Vitest + Testing Library
 
 ## Running
+
+Preferred local development from the repository root:
+
+```bash
+npm run dev
+```
+
+Frontend-only development from this directory:
 
 ```bash
 npm install
@@ -17,6 +25,8 @@ npm run dev
 ```
 
 The dev server opens at `http://localhost:5174`. It expects the Flask backend on port 5001.
+
+For the live Pluto deployment, the built frontend is served by Flask/Gunicorn through `http://pluto.cs.hi.is/mpgv/`. Gunicorn listens locally on port `6000`; the frontend and API are same-origin under `/mpgv/`.
 
 ## Testing
 
@@ -46,13 +56,13 @@ src/
 
 | Name | Provider |
 |---|---|
-| Map | OpenFreeMap vector style rendered with MapLibre |
+| Map | OpenFreeMap Positron vector basemap |
 | Satellite | Esri World Imagery |
 | Terrain | Icelandic Meteorological Office raster terrain tiles |
 | Gray | CARTO light basemap |
 | Heatmap | CARTO dark base with leaflet.heat density overlay |
 
-The **Map** layer depends on WebGL through MapLibre GL. Chrome, Safari, or Edge must allow WebGL/hardware graphics for that vector layer to initialize. If MapLibre initialization fails, the app falls back to a CARTO light raster basemap.
+The default **Map** layer uses the OpenFreeMap Positron vector style through MapLibre GL. MapLibre GL is also used for label overlays on some non-default layers, so Chrome, Safari, or Edge should allow WebGL/hardware graphics for those overlays.
 
 ## Live Overlays
 

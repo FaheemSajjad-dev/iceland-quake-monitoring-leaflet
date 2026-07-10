@@ -10,11 +10,12 @@ This is the Leaflet version of the original Google Maps project. It does not req
 
 ## Current Deployment
 
-- Local development frontend: `http://localhost:5174`
-- Local development backend: `http://localhost:5001`
-- Pluto deployment: `http://pluto.cs.hi.is/mpgv/`
+- Live Pluto URL: `http://pluto.cs.hi.is/mpgv/`
+- Pluto backend port: `6000` behind the Pluto `/mpgv/` route
 - Pluto project path: `~/iceland-quake`
 - Pluto deploy command from the server project root: `./deploy.sh`
+- Local development frontend: `http://localhost:5174`
+- Local development backend: `http://localhost:5001`
 
 The deploy copy in `F:\iceland-quake-monitoring-leaflet-deploy-test` is the source used for Pluto uploads.
 
@@ -23,7 +24,7 @@ The deploy copy in `F:\iceland-quake-monitoring-leaflet-deploy-test` is the sour
 | Layer | Technology |
 |---|---|
 | Frontend | React 18, Vite, react-leaflet 4, Leaflet, MapLibre GL, leaflet.heat |
-| Map tiles | OpenFreeMap map tiles, IMO terrain, Esri World Imagery, CARTO light/dark tiles |
+| Map tiles | OpenFreeMap Positron, CARTO dark heatmap tiles, IMO terrain, Esri World Imagery, MapLibre label overlays |
 | Backend | Python 3, Flask, SQLAlchemy, APScheduler |
 | Database | SQLite with WAL mode |
 | API protection | Flask-Limiter with environment-configurable per-client limits |
@@ -82,13 +83,13 @@ Each Quakes API event is used at most once in the merged catalogue. If multiple 
 
 | Layer | Provider | Notes |
 |---|---|---|
-| Map | OpenFreeMap vector style via MapLibre | Default map base with glacier polygons and labels |
+| Map | OpenFreeMap Positron vector basemap | Default map base |
 | Satellite | Esri World Imagery | Visual imagery context |
 | Terrain | Icelandic Meteorological Office raster tiles | `geo.vedur.is` terrain basemap |
 | Gray | CARTO light basemap | Quiet inspection layer |
 | Heatmap | CARTO dark base + `leaflet.heat` + label overlay | Earthquake density visualization |
 
-MapLibre GL requires browser WebGL support for the vector **Map** layer. If WebGL is disabled by browser settings, enterprise policy, or graphics acceleration settings, the app falls back to a CARTO light raster basemap so the map remains usable.
+MapLibre GL renders the default **Map** layer with the OpenFreeMap Positron vector style and provides label overlays on some non-default layers.
 
 ## Heatmap Layer
 
@@ -119,25 +120,36 @@ iceland-quake-monitoring-leaflet/
 
 ## Running Locally
 
-Backend, port 5001:
+Local development runs as your current user and uses separate frontend and backend dev servers. These ports are not the Pluto production port.
+
+From the repository root:
 
 ```bash
-backend/venv/Scripts/python.exe backend/app.py
-```
-
-Frontend, port 5174:
-
-```bash
-cd frontend
-npm install
 npm run dev
 ```
 
-Open `http://localhost:5174`. The frontend points to `http://localhost:5001` during local development.
+This starts:
+
+| Service | URL |
+|---|---|
+| Frontend | `http://127.0.0.1:5174` |
+| Backend | `http://127.0.0.1:5001` |
+
+The backend scheduler is disabled by default for faster UI testing. To run the local background refresh jobs too:
+
+```bash
+DISABLE_SCHEDULER=0 npm run dev
+```
+
+To stop a detached local backend if one is left running:
+
+```bash
+npm run dev:stop
+```
 
 ## Pluto Deployment
 
-The Pluto server runs the app from `~/iceland-quake` and serves the public URL at `http://pluto.cs.hi.is/mpgv/`.
+The Pluto server runs the app from `~/iceland-quake`. Gunicorn listens locally on port `6000`, and Pluto serves the public URL at `http://pluto.cs.hi.is/mpgv/`.
 
 Typical update flow:
 
@@ -154,7 +166,11 @@ cd ~/iceland-quake
 ./deploy.sh
 ```
 
-`deploy.sh` installs Python and Node dependencies, builds the frontend, stops the old Gunicorn process, and starts the backend on port 6000.
+`deploy.sh` installs Python and Node dependencies, builds the frontend, stops the old Gunicorn process, and starts Gunicorn on port `6000` with frontend base path `/mpgv/`. The explicit equivalent is:
+
+```bash
+./deploy.sh --port 6000 --base-url /mpgv/
+```
 
 ## Running Tests
 
@@ -211,7 +227,7 @@ Rate limiting protects request frequency, not total user capacity. See `RATE_LIM
 | `HeatmapLayer` | Rebuilt only on data changes and heatmap zoom-band changes; panning does not redraw |
 | `FaultsOverlay` | Fetches filtered WFS GeoJSON on first use, then reuses the in-memory cache |
 | Attribution | Uses one compact bottom-right attribution line instead of stacked provider strings |
-| Map vector layer | Falls back to a CARTO raster basemap if MapLibre GL fails to initialize |
+| Map layer | Uses the OpenFreeMap Positron vector style through MapLibre GL |
 
 ## Map Tile Licensing
 

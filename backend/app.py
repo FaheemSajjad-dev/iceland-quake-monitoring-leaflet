@@ -3,7 +3,9 @@ from __future__ import annotations
 import os
 import sys
 import logging
+import hmac
 import threading
+from pathlib import Path
 
 import csv
 import io
@@ -13,7 +15,20 @@ import requests
 
 from datetime import datetime, timedelta, timezone
 
-from flask import Flask, jsonify, request, make_response
+# When the app is launched with a global Python instead of backend/venv,
+# make the local virtualenv's site-packages importable as a fallback.
+CURRENT_FILE_PATH = os.path.dirname(os.path.abspath(__file__))
+LOCAL_VENV = Path(CURRENT_FILE_PATH) / "venv"
+if LOCAL_VENV.exists():
+    # Windows: Lib/site-packages; Linux: lib/python3.x/site-packages
+    venv_site_packages = next(
+        (p for p in [*LOCAL_VENV.glob("Lib/site-packages"), *LOCAL_VENV.glob("lib/*/site-packages")] if p.exists()),
+        None,
+    )
+    if venv_site_packages and str(venv_site_packages) not in sys.path:
+        sys.path.insert(0, str(venv_site_packages))
+
+from flask import Flask, jsonify, request, make_response, send_from_directory
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -26,17 +41,23 @@ try:
 except Exception:  # noqa: BLE001
     Compress = None
 
+FRONTEND_PORT = int(os.environ.get("FRONTEND_PORT", "5174"))
+BACKEND_PORT = int(os.environ.get("PORT") or os.environ.get("BACKEND_PORT", "5001"))
+FRONTEND_DIST_DIR = (Path(CURRENT_FILE_PATH).parent / "frontend" / "dist").resolve()
+FRONTEND_ASSETS_DIR = FRONTEND_DIST_DIR / "assets"
+
 # -----------------------------------------------------------------------------
 # App and DB setup
 # -----------------------------------------------------------------------------
 app = Flask(__name__)
 
-# Same-origin production deployment does not need CORS; local Vite dev does.
+# Restrict CORS to known frontend dev origins. Production is same-origin on Render/Pluto.
 _ALLOWED_ORIGINS = [
-    "http://localhost:5174",
-    "http://127.0.0.1:5174",
+    f"http://localhost:{FRONTEND_PORT}",
+    f"http://127.0.0.1:{FRONTEND_PORT}",
 ]
-CORS(app, origins=_ALLOWED_ORIGINS)
+# CORS is applied explicitly in add_security_headers so localhost and
+# 127.0.0.1 are reflected exactly for local development.
 if Compress:
     Compress(app)
 
@@ -61,6 +82,12 @@ SECURITY_HEADERS = {
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Content-Security-Policy": (
         "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' blob: 'wasm-unsafe-eval'; "
+        "worker-src blob:; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob: https://server.arcgisonline.com https://services.arcgisonline.com https://basemaps.arcgis.com https://www.arcgis.com https://tiles.openfreemap.org https://*.basemaps.cartocdn.com https://luk.vedur.is https://geo.vedur.is https://maps.europe-geology.eu; "
+        "connect-src 'self' https://server.arcgisonline.com https://services.arcgisonline.com https://basemaps.arcgis.com https://www.arcgis.com https://tiles.openfreemap.org https://luk.vedur.is https://geo.vedur.is https://maps.europe-geology.eu; "
+        "font-src 'self' https://tiles.openfreemap.org; "
         "frame-ancestors 'none'; "
         "base-uri 'self'; "
         "form-action 'self'"
@@ -72,11 +99,35 @@ SECURITY_HEADERS = {
 def add_security_headers(response):
     for header, value in SECURITY_HEADERS.items():
         response.headers.setdefault(header, value)
+
+    origin = request.headers.get("Origin")
+    if origin in _ALLOWED_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
+        response.headers.setdefault("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
+        requested_headers = request.headers.get("Access-Control-Request-Headers")
+        if requested_headers:
+            response.headers["Access-Control-Allow-Headers"] = requested_headers
+
     return response
 
 logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
-CURRENT_FILE_PATH = os.path.dirname(os.path.abspath(__file__))
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "").strip()
+_LOCAL_ADMIN_ADDRS = {"127.0.0.1", "::1", "localhost"}
+
+def _request_admin_token() -> str:
+    auth_header = request.headers.get("Authorization", "").strip()
+    if auth_header.lower().startswith("bearer "):
+        return auth_header[7:].strip()
+    return request.headers.get("X-Admin-Token", "").strip()
+
+def _is_admin_request() -> bool:
+    if ADMIN_TOKEN:
+        token = _request_admin_token()
+        return bool(token) and hmac.compare_digest(token, ADMIN_TOKEN)
+    return request.remote_addr in _LOCAL_ADMIN_ADDRS
+
 DB_DIR = os.path.join(CURRENT_FILE_PATH, "data")
 os.makedirs(DB_DIR, exist_ok=True)
 DB_PATH = os.path.join(DB_DIR, "earthquakes.db")
@@ -199,6 +250,8 @@ create_tables()
 _scheduler = None
 _scheduler_lock = threading.Lock()
 _scheduler_started = False
+_bootstrap_lock = threading.Lock()
+_bootstrap_started = False
 
 # Cache the default /earthquakes response between frontend polling intervals.
 _eq_cache: dict = {"data": None, "ts": 0.0}
@@ -207,6 +260,37 @@ _EQ_CACHE_TTL = 60
 # -----------------------------------------------------------------------------
 # Scheduled job
 # -----------------------------------------------------------------------------
+def _refresh_derived_data() -> None:
+    """Fetch secondary sources and rebuild derived tables."""
+    sys.path.append(CURRENT_FILE_PATH)
+    import importlib
+    import reconcile as _reconcile; importlib.reload(_reconcile)
+    import skjalftalisa_client as _sk; importlib.reload(_sk)
+    import volcano_scraper as _volcanoes; importlib.reload(_volcanoes)
+
+    match_and_merge = _reconcile.match_and_merge
+    fetch_last_n_days = _sk.fetch_last_n_days
+    store_skjalftalisa_rows = _sk.store_skjalftalisa_rows
+    refresh_volcanoes = _volcanoes.refresh_volcanoes
+
+    try:
+        rows = fetch_last_n_days(7, size_min=3.0)
+        store_skjalftalisa_rows(rows)
+    except Exception as e:
+        print(f"Quakes API fetch failed: {e}")
+
+    try:
+        refresh_volcanoes(DB_PATH)
+    except Exception as e:
+        print(f"Volcano refresh failed: {e}")
+
+    end = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    start = "2020-06-01 00:00:00"
+    match_and_merge(start, end, min_mag=3.0)
+
+    _eq_cache["data"] = None
+
+
 def scheduled_scrape() -> None:
     """
     Every 3 minutes:
@@ -247,6 +331,29 @@ def scheduled_scrape() -> None:
 
         _eq_cache["data"] = None
 
+
+def bootstrap_missing_data() -> None:
+    """Populate merged and volcano tables on a fresh deployment."""
+    global _bootstrap_started
+
+    with _bootstrap_lock:
+        if _bootstrap_started:
+            return
+        _bootstrap_started = True
+
+    with app.app_context():
+        if EarthquakeMerged.query.count() > 0 and Volcano.query.count() > 0:
+            return
+
+        if Earthquake.query.count() == 0:
+            sys.path.append(CURRENT_FILE_PATH)
+            import importlib
+            import scrape as _scrape; importlib.reload(_scrape)
+            _scrape.scrape_all_earthquake_data()
+
+        _refresh_derived_data()
+
+
 def start_background_services() -> None:
     global _scheduler, _scheduler_started
 
@@ -273,9 +380,29 @@ def ensure_background_services() -> None:
 # -----------------------------------------------------------------------------
 # Routes
 # -----------------------------------------------------------------------------
-@app.route("/", methods=["GET"])
+@app.route("/assets/<path:path>", methods=["GET"])
 @limiter.exempt
-def home():
+def frontend_assets(path):
+    if FRONTEND_ASSETS_DIR.exists():
+        return send_from_directory(FRONTEND_ASSETS_DIR, path)
+    return jsonify({"message": "Frontend assets are not built yet."}), 404
+
+
+@app.route("/", defaults={"path": ""}, methods=["GET"])
+@app.route("/<path:path>", methods=["GET"])
+@limiter.exempt
+def home(path: str):
+    if path.startswith("earthquakes") or path.startswith("volcanoes") or path.startswith("scrape") or path.startswith("shakemap"):
+        return jsonify({"message": "API route not found."}), 404
+
+    requested_file = FRONTEND_DIST_DIR / path
+    if path and requested_file.is_file():
+        return send_from_directory(FRONTEND_DIST_DIR, path)
+
+    index_file = FRONTEND_DIST_DIR / "index.html"
+    if index_file.exists():
+        return send_from_directory(FRONTEND_DIST_DIR, "index.html")
+
     return jsonify({"message": "Iceland Earthquake Monitoring API is running!"})
 
 
@@ -284,6 +411,10 @@ def home():
 def get_earthquake_data():
     """Return merged earthquake data. Optional ?days=NN limits to recent window."""
     days_param = (request.args.get("days") or "all").strip().lower()
+
+    with app.app_context():
+        if EarthquakeMerged.query.count() == 0:
+            bootstrap_missing_data()
 
     # Serve from cache only for the default "all" case
     if days_param == "all":
@@ -366,8 +497,8 @@ def get_earthquake_data_csv():
 @app.route('/scrape-volcanoes', methods=['GET'])
 @limiter.exempt
 def scrape_volcanoes():
-    """Fetch and save live volcano data from EPOS Iceland API (localhost only)."""
-    if request.remote_addr not in ("127.0.0.1", "::1"):
+    """Fetch and save live volcano data from EPOS Iceland API (admin only)."""
+    if not _is_admin_request():
         return jsonify({"error": "Forbidden"}), 403
     try:
         sys.path.append(CURRENT_FILE_PATH)
@@ -385,7 +516,9 @@ def scrape_volcanoes():
 @limiter.limit(lambda: rate_limit("VOLCANOES", "120 per minute"))
 def get_volcano_data():
     """Returns volcano data from the database as JSON."""
-    try:
+    with app.app_context():
+        if Volcano.query.count() == 0:
+            bootstrap_missing_data()
         volcanoes = Volcano.query.all()
         return jsonify([
             {
@@ -399,16 +532,13 @@ def get_volcano_data():
             }
             for v in volcanoes
         ])
-    except Exception:
-        logging.exception("get_volcano_data failed")
-        return jsonify([]), 200
 
 
 @app.route("/reconcile", methods=["POST"])
 @limiter.exempt
 def run_reconcile():
-    """Manual trigger to rerun the reconcile step (localhost only)."""
-    if request.remote_addr not in ("127.0.0.1", "::1"):
+    """Manual trigger to rerun the reconcile step (admin only)."""
+    if not _is_admin_request():
         return jsonify({"error": "Forbidden"}), 403
     from reconcile import match_and_merge
     end = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
@@ -526,4 +656,4 @@ def shakemap(dt):
 if __name__ == "__main__":
     print(f"Starting server with database at: {DB_PATH}")
     start_background_services()
-    app.run(debug=False, port=5001)
+    app.run(debug=False, port=BACKEND_PORT)
