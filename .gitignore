@@ -1,51 +1,57 @@
 # Python
 backend/venv/
-backend/__pycache__/
-backend/**/__pycache__/
+venv/
+.venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyright/
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
+coverage/
 
-# Virtual environments
-venv/
-.venv/
-
-# Database (runtime data — not source)
-backend/data/earthquakes.db
-backend/data/earthquakes.db-shm
-backend/data/earthquakes.db-wal
+# Database runtime data
+backend/data/*.db*
+backend/data/*.sqlite*
 *.db-shm
 *.db-wal
 *.db-journal
 
-# Node / Frontend
+# Node / frontend
 node_modules/
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/
 dist/
+dist-ssr/
 .vite/
+.eslintcache
+*.tsbuildinfo
 
-# VS files
+# Editors
 .vs/
+.idea/
 .claude/
 .vscode/*
 !.vscode/settings.json
 !.vscode/extensions.json
 
-# OS
+# Operating system
 .DS_Store
 Thumbs.db
 
-# Env files
+# Environment and secret files
 .env
+.env.*
 *.env
-private.env
-private.*.env
+*.env.*
+!.env.example
+!**/.env.example
+!*.env.example
+!**/*.env.example
 
-# Local run helper output
+# Local runtime output
 .local/
 backend/runtime/
 runtime/
@@ -54,7 +60,6 @@ server.log
 server.pid
 *.log
 *.pid
-*.lock
 
 # Temporary files
 *.tmp
@@ -69,5 +74,5 @@ backups/
 # Generated diagnostic reports
 backend/reports/shakemap_audit.csv
 
-# Large binary assets (exceed GitHub's 100 MB limit)
+# Large binary assets
 *.pmtiles

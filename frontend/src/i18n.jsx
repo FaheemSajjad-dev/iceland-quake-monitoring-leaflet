@@ -73,7 +73,7 @@ const T = {
     app_title: "MPGV Jarðskjálftakort Íslands",
     analysis: "Jarðskjálftayfirlit",
     about: "Um",
-    recent_selections: "NÃ½leg val",
+    recent_selections: "Nýleg val",
     // LeftPanel controls
     show_controls: "Sýna stýringar",
     hide_controls: "Fela stýringar",

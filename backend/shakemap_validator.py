@@ -60,7 +60,6 @@ def pick_best_shakemap(cands: List[Dict[str, Any]], e_dt: datetime, e_lat: float
     """Return (choice, dt_sec, dist_km, dm) or (None, ...)."""
     best = None
     for c in cands:
-        # keys: 'origin_time','latitude','longitude','auto_depth','ml_auto','mM','url_view_file'...
         sm_dt = parse_dt(c.get("origin_time"))
         sm_lat = float(c.get("latitude"))
         sm_lon = float(c.get("longitude"))
@@ -71,13 +70,12 @@ def pick_best_shakemap(cands: List[Dict[str, Any]], e_dt: datetime, e_lat: float
         dist_km = hav_km(e_lat, e_lon, sm_lat, sm_lon)
         dm = (e_Mw - sm_M) if sm_M is not None else None
 
-        # keep only those inside hard limits
         if within_limits(dt_sec, dist_km, dm):
             score = (dist_km, dt_sec, abs(dm) if dm is not None else 0.0)
             item = (c, dt_sec, dist_km, dm, score)
             if best is None or score < best[-1]:
                 best = item
-    return best  # might be None
+    return best
 
 
 
@@ -91,7 +89,7 @@ def audit_all():
     with app.app_context():
         db.session.expire_on_commit = False
 
-        # SNAPSHOT plain values up-front (no ORM instances in the loop)
+        # Snapshot scalar values so commits inside the loop cannot expire ORM rows.
         rows = (
             db.session.query(
                 EarthquakeMerged.date_time,
@@ -101,7 +99,6 @@ def audit_all():
             )
             .all()
         )
-        # rows is a list of 4-tuples
         for ev_dt_str, ev_lat, ev_lon, ev_Mw in rows:
             ev_dt_str = str(ev_dt_str)
             ev_lat = float(ev_lat)
@@ -111,7 +108,6 @@ def audit_all():
             try:
                 e_dt = parse_dt(ev_dt_str)
 
-                # fetch window around event
                 cands = fetch_shakemaps_window(e_dt, ev_lat, ev_lon)
                 choice = pick_best_shakemap(cands, e_dt, ev_lat, ev_lon, ev_Mw)
 
@@ -137,7 +133,6 @@ def audit_all():
                         origin_time=c.get("origin_time"),
                     )
 
-                # upsert cache using Session.get (SQLAlchemy 2.x style)
                 link = db.session.get(ShakeMapLink, ev_dt_str) or ShakeMapLink(dt=ev_dt_str)
                 for k, v in rec.items():
                     if hasattr(link, k):

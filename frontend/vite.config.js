@@ -5,6 +5,7 @@ import process from 'node:process'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_')
+  const backendPort = process.env.BACKEND_PORT || '5001'
 
   return {
     plugins: [react()],
@@ -19,6 +20,12 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5174,
+      proxy: {
+        '/health': {
+          target: `http://127.0.0.1:${backendPort}`,
+          changeOrigin: true,
+        },
+      },
     },
     test: {
       environment: 'jsdom',

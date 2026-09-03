@@ -1111,6 +1111,7 @@ const MapLibreEarthquakeMap = ({
     let cancelled = false;
     if (mapType === "heatmap") {
       setStyledMapStyle(null);
+      setDarkHeatmapStyle(null);
       fetchDarkStyle()
         .then((raw) => {
           if (!cancelled) setDarkHeatmapStyle(patchDarkHeatmapStyle(raw));
@@ -1127,12 +1128,15 @@ const MapLibreEarthquakeMap = ({
       .then((raw) => {
         if (cancelled) return;
         if (mapType === "roadmap") {
-          setStyledMapStyle(patchStyle(raw));
+          setStyledMapStyle({ mapType, style: patchStyle(raw) });
           return;
         }
         const rasterStyle = MAPLIBRE_STYLES[mapType] ?? MAPLIBRE_STYLES.roadmap;
         const labelTheme = mapType === "satellite" ? "dark" : "light";
-        setStyledMapStyle(buildRasterStyleWithLabels(rasterStyle, raw, labelTheme));
+        setStyledMapStyle({
+          mapType,
+          style: buildRasterStyleWithLabels(rasterStyle, raw, labelTheme),
+        });
       })
       .catch(() => {
         if (!cancelled) setStyledMapStyle(null);
@@ -1161,7 +1165,7 @@ const MapLibreEarthquakeMap = ({
 
   const baseMapStyle = mapType === "heatmap"
     ? darkHeatmapStyle
-    : styledMapStyle ?? (MAPLIBRE_STYLES[mapType] ?? MAPLIBRE_STYLES.roadmap);
+    : styledMapStyle?.mapType === mapType ? styledMapStyle.style : null;
   const activeMapStyle = useMemo(
     () => !baseMapStyle || !isMobileAttribution
       ? baseMapStyle
