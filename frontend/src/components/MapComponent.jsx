@@ -410,6 +410,18 @@ const patchDarkHeatmapStyle = (raw) => {
     hideGlaciers: true,
     hiddenLayerIds: HIDDEN_HEATMAP_LAYERS,
   });
+  const layers = style.layers.map((layer) =>
+    layer.type === "symbol" && layer.layout?.["text-field"]
+      ? {
+          ...layer,
+          paint: {
+            ...(layer.paint ?? {}),
+            "text-color": "#fff",
+            "text-halo-color": "rgba(0, 0, 0, 0.5)",
+          },
+        }
+      : layer
+  );
   const sources = Object.fromEntries(
     Object.entries(style.sources ?? {}).map(([sourceId, source]) => [
       sourceId,
@@ -418,7 +430,7 @@ const patchDarkHeatmapStyle = (raw) => {
         : source,
     ])
   );
-  return { ...style, sources };
+  return { ...style, layers, sources };
 };
 
 const buildRasterStyleWithLabels = (rasterStyle, rawOpenFreeMapStyle, labelTheme = "light") => {
