@@ -1403,9 +1403,7 @@ const MapComponent = ({
       if (!selectedEarthquake) return;
       try {
         const data = await fetchShakeMapValidated(
-          selectedEarthquake["Date-time"],
-          selectedEarthquake.Latitude,
-          selectedEarthquake.Longitude
+          selectedEarthquake["Date-time"]
         );
         if (!cancelled) setShakeUrl(data);
       } catch {
@@ -1467,7 +1465,7 @@ const MapComponent = ({
               <button
                 className="info-card__action"
                 onClick={() => window.open(shakeUrl.url, "_blank", "noopener,noreferrer")}
-                title={`ShakeMap (Δt ${Math.round(shakeUrl.dt_sec)} s, Δd ${shakeUrl.dist_km?.toFixed(1)} km, ΔM ${shakeUrl.dm ?? "–"})`}
+                title={t('info_shakemap_match')}
               >
                 {t('info_view_shakemap')}
               </button>
