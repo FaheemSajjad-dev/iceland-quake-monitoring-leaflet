@@ -15,7 +15,7 @@ The app visualizes Icelandic earthquakes from June 2020 onward, focusing on even
 - Local development frontend: `http://localhost:5174`
 - Local development backend: `http://localhost:5001`
 
-The deploy copy in `F:\iceland-quake-monitoring-leaflet-deploy-test` is the source used for Pluto uploads.
+This repository is the source used for GitHub and Pluto deployments.
 
 ## Stack
 
@@ -185,9 +185,9 @@ The Pluto server runs the app from `~/iceland-quake`. Gunicorn listens locally o
 
 Typical update flow:
 
-1. Apply and verify changes in the main F project.
-2. Copy the same relevant changes to the deploy F project.
-3. Mirror the same files into the G recovery folders.
+1. Apply and verify changes in this repository.
+2. Run the backend and frontend tests and production build.
+3. Commit and push this repository to GitHub.
 4. Build and test locally.
 5. Commit and push both F Git repositories.
 6. Upload deploy F changes to Pluto.

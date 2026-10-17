@@ -224,7 +224,7 @@ class Earthquake(db.Model):
     source_id = db.Column(db.String, index=True)
     is_current = db.Column(db.Boolean, nullable=False, default=True)
     __table_args__ = (
-        db.UniqueConstraint("date_time", "latitude", "longitude", name="unique_earthquake_entry"),
+        db.UniqueConstraint("date_time", "latitude", "longitude", "depth", "mw_mean", name="unique_earthquake_entry"),
         db.Index(
             "uq_earthquake_current_source_id",
             "source_id",
@@ -338,6 +338,10 @@ def create_tables() -> None:
                 )
             )
             conn.commit()
+        from revision_schema import migrate_revision_schema
+        backup = migrate_revision_schema(DB_PATH)
+        if backup:
+            logging.info("Migrated MPGV revision constraint; database backup=%s", backup)
 
 create_tables()
 
@@ -668,6 +672,14 @@ def scheduled_scrape() -> None:
 
                 try:
                     mpgv_summary = scrape_all_earthquake_data()
+                except requests.RequestException as exc:
+                    logging.warning(
+                        "MPGV source unavailable (%s); preserving the previous "
+                        "current and canonical catalogues and API cache. "
+                        "Will retry on the next scheduled cycle: %s",
+                        type(exc).__name__, exc,
+                    )
+                    return
                 except Exception:
                     logging.exception(
                         "MPGV acquisition rejected; preserving the previous "

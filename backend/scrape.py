@@ -5,6 +5,7 @@ import logging
 import re
 import os
 import sqlite3
+import time
 
 CURRENT_FILE_PATH = os.path.dirname(os.path.abspath(__file__))
 DB_DIR = os.path.join(CURRENT_FILE_PATH, "data")
@@ -19,6 +20,24 @@ except (ImportError, ModuleNotFoundError):
     print("Running in standalone mode without Flask app context.")
 
 BASE_URL = 'http://hraun.vedur.is/ja/Mpgv/'
+MPGV_REQUEST_TIMEOUT = (5, 20)
+
+
+def _fetch_page(url):
+    """Retry one transient connection/read failure before rejecting the snapshot."""
+    for attempt in range(2):
+        try:
+            response = requests.get(url, timeout=MPGV_REQUEST_TIMEOUT)
+            response.raise_for_status()
+            return response
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            if attempt == 1:
+                raise
+            logging.warning(
+                "MPGV request failed (%s); retrying once: %s",
+                type(exc).__name__, url,
+            )
+            time.sleep(1)
 
 MIN_CATALOGUE_ROWS = int(os.environ.get("MPGV_MIN_CATALOGUE_ROWS", "1000"))
 MAX_CATALOGUE_DROP_FRACTION = float(
@@ -59,8 +78,7 @@ def get_monthly_data(
 ):
     """Scrapes data for a specific month and filters by magnitude >= 3.0."""
     url = f"{BASE_URL}{year}/{year}-{str(month).zfill(2)}.html"
-    response = requests.get(url, timeout=20)
-    response.raise_for_status()
+    response = _fetch_page(url)
     soup = BeautifulSoup(response.content, 'html.parser')
     table = soup.find('table', class_='dataframe')
 
@@ -240,8 +258,7 @@ def validate_candidate_catalogue(
 
 def fetch_authoritative_catalogue(*, now=None, min_catalogue_rows=None):
     """Fetch and validate the complete current MPGV magnitude-3+ catalogue."""
-    response = requests.get(BASE_URL, timeout=20)
-    response.raise_for_status()
+    response = _fetch_page(BASE_URL)
     soup = BeautifulSoup(response.content, 'html.parser')
     year_links = sorted({
         a['href'].strip('/')
@@ -261,8 +278,7 @@ def fetch_authoritative_catalogue(*, now=None, min_catalogue_rows=None):
     discovered_months = {}
     for year in year_links:
         year_url = f"{BASE_URL}{year}/"
-        year_response = requests.get(year_url, timeout=20)
-        year_response.raise_for_status()
+        year_response = _fetch_page(year_url)
         year_soup = BeautifulSoup(year_response.content, 'html.parser')
         month_links = sorted({
             a['href'].removesuffix('.html')
@@ -503,7 +519,7 @@ def _scrape_and_save_with_sqlite():
         mw_mean REAL NOT NULL,
         source_id TEXT,
         is_current INTEGER NOT NULL DEFAULT 1,
-        UNIQUE(date_time, latitude, longitude)
+        UNIQUE(date_time, latitude, longitude, depth, mw_mean)
     )
     ''')
     columns = {row[1] for row in cursor.execute("PRAGMA table_info(earthquake)")}
@@ -513,6 +529,10 @@ def _scrape_and_save_with_sqlite():
         cursor.execute(
             "ALTER TABLE earthquake ADD COLUMN is_current INTEGER NOT NULL DEFAULT 1"
         )
+
+    conn.commit()
+    from revision_schema import migrate_revision_schema
+    migrate_revision_schema(DB_PATH)
 
     try:
         prior_current_count = cursor.execute(

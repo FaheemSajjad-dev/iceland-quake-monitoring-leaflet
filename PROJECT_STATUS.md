@@ -1,0 +1,54 @@
+﻿Current live site: https://pluto.cs.hi.is/mpgv/
+
+Major features completed since 22 July 2026:
+
+- Hardened MPGV revision handling so historical source revisions remain available for provenance while only the latest authoritative row for each source identity reaches reconciliation and the public catalogue.
+- Preserved exact source magnitude precision across the map, Insights summaries, tables, and dynamic catalogue-bound magnitude controls.
+- Preserved the active map camera when switching among Map, Satellite, and Terrain.
+- Preserved Insights filters, chart ranges, and table state when users visit the map and return.
+- Updated Insights View on map so an event excluded by active map filters is shown by itself for 15 seconds without changing those filters.
+- Enabled public HTTPS at the Pluto reverse proxy while retaining private loopback HTTP between nginx and Gunicorn.
+
+Work completed since 9 July 2026:
+
+- Refined the map controls, Iceland-focused latitude/longitude grid, scale positioning, fault/fissure legend, compact attribution, and responsive layout.
+- Improved earthquake interaction by keeping markers visually small while adding larger invisible click/touch targets.
+- Improved the volcano side panel and repositioned map controls so they remain usable when the panel is open.
+- Integrated MapLibre GL with OpenFreeMap as the default vector basemap and retained an automatic CARTO raster fallback when WebGL is unavailable.
+- Improved the MapLibre heatmap and aligned its timeline marker/neutral styling with the rest of the interface.
+- Tuned heatmap weights to emphasize event density without allowing larger magnitudes to dominate the visualization.
+- Added Recent Selections for the ten latest unique marker selections on Map, Satellite, and Terrain; the control is hidden and its panel closes in Heatmap view.
+- Added a responsive Insights page linked from the map. It provides catalogue-bound date, magnitude, depth, depth-quality, category, and grouping filters; summary cards; five interactive charts; paginated recent and strongest tables; filtered CSV export; browser print/PDF output; and View on map actions.
+- Added the `/insights/limits` endpoint so magnitude bounds and depth bounds for matched-only or explicitly included unverified MPGV depths come from the current catalogue.
+- Added desktop chart tooltips and mobile touch tracking for the magnitude-versus-depth chart.
+- Completed frontend lint, audit, build, and unit-test checks before deployment synchronization.
+
+Security features added or confirmed:
+
+- Production debug mode is disabled, preventing Flask debug information and interactive debugging from being exposed.
+- Same-origin production requests and restricted development CORS prevent arbitrary websites from reading the API through a browser.
+- Content Security Policy restricts which scripts, styles, images, fonts, connections, and map providers the browser may load.
+- Security headers block framing/clickjacking, MIME-type sniffing, and unnecessary browser capabilities, while limiting referrer information.
+- Flask-Limiter applies per-client limits to public API, ShakeMap, CSV export, and maintenance endpoints; excessive requests receive HTTP 429.
+- State-changing maintenance routes require a private X-Admin-Token in production, so reconciliation, scraping, and database initialization cannot be triggered publicly.
+- Maintenance actions use POST rather than public GET side effects, and initial database loading is now an explicit authorized operation.
+- Client-facing errors are generic while detailed exceptions remain in server logs, preventing internal implementation details from leaking.
+- Gunicorn binds only to 127.0.0.1:6000, so it is reachable through nginx but not directly from the internet.
+- Forwarded client/protocol headers are trusted only when exactly one confirmed nginx proxy is configured, reducing spoofed-header risk.
+- API responses and CSV exports have configurable date-window and row limits, reducing oversized queries and resource abuse.
+- Unused API-key material was removed, private production values are kept outside Git, and frontend dependency auditing is part of verification.
+- Automated backend security tests cover authorization, error handling, proxy behavior, initialization, and request limits.
+
+HTTPS status:
+
+- Pluto nginx now accepts public HTTPS for /mpgv/ and redirects HTTP requests to HTTPS.
+- Gunicorn correctly continues to serve plain HTTP only on the private loopback address 127.0.0.1:6000 and is not directly exposed to the internet.
+- Certificate renewal, the nginx port 443 listener, Host validation, and the public redirect remain server-administration responsibilities; no application-code or Gunicorn TLS change is required.
+
+Items to discuss / future production work:
+
+- Before formal institutional publication, confirm the licences, attribution requirements, and usage limits of third-party map/data providers; institution-managed tiles are an option only if the service grows or provider terms require them.
+- The current nginx/Gunicorn/SQLite setup is suitable for this project deployment. Static caching and PostgreSQL are future scaling options for sustained heavy traffic, not current application blockers.
+- If the service moves to multiple Gunicorn workers or servers, move Flask-Limiter counters from in-memory storage to shared Redis and add nginx/platform limits.
+- Run department/student stress testing as a future validation step and use the results to decide whether caching, Redis, or PostgreSQL is actually needed.
+- Update screenshots and thesis diagrams so they describe the current MapLibre/deck.gl interface accurately.

@@ -10,9 +10,9 @@ This document records how this project is deployed, how the live service behaves
 - SSH user: `mfs7`
 - Server project path: `~/iceland-quake`
 - Backend port: `6000`
-- Source repo: `FaheemSajjad-dev/iceland-quake-monitoring-leaflet-deploy-test`
+- Source repo: `FaheemSajjad-dev/MPGV_Monitor_Final`
 
-The deploy project at `F:\iceland-quake-monitoring-leaflet-deploy-test` is the local source used for Pluto uploads.
+This repository is the source used for GitHub and Pluto deployments.
 
 ## Pluto Deployment Model
 
@@ -28,9 +28,9 @@ The deploy project at `F:\iceland-quake-monitoring-leaflet-deploy-test` is the l
 
 ## Standard Update Flow
 
-1. Apply and verify changes in the main F project.
-2. Copy the same relevant changes to the deploy F project.
-3. Mirror changed files to the G recovery folders.
+1. Apply and verify changes in this repository.
+2. Run the backend and frontend tests and production build.
+3. Commit and push this repository to GitHub.
 4. Run backend and frontend tests locally.
 5. Build both frontends locally.
 6. Commit and push both F repositories.

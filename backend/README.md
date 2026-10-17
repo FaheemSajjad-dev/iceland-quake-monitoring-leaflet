@@ -28,6 +28,8 @@ Matched catalogue rows use MPGV time and magnitude with IMO Quakes API location 
 
 MPGV ingestion retains historical source revisions but marks only the latest authoritative row for each stable `source_id` as current. Reconciliation reads current MPGV rows and produces at most one merged row per MPGV source identity. This keeps revisions available for provenance without exposing duplicate catalogue events.
 
+At startup, `revision_schema.py` upgrades the legacy uniqueness constraint on time and coordinates to include depth and magnitude. This allows corrected source values to be retained as revisions. The migration creates an SQLite backup beside the database (`earthquakes.db.before-revisions-*.bak`), preserves rows and indexes in a transaction, and checks database integrity before committing. The partial unique index still allows only one current row per source identity. Already upgraded databases are unchanged.
+
 For a controlled repair of MPGV revision metadata and the derived catalogue, use `cleanup_mpgv_revisions.py`. It is dry-run by default and operates on a temporary database copy. Applying it requires an explicit database and a new, non-existing backup path:
 
 ```bash

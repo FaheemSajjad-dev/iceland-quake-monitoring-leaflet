@@ -1,9 +1,11 @@
 import axios from "axios";
 
-// API calls are same-origin in every environment. Vite proxies them to Flask
-// during local development; the production server exposes them under BASE_URL.
+// In dev, point explicitly at the Flask backend (port 5001) on the same
+// hostname used to load Vite. Mixing localhost and 127.0.0.1 creates distinct
+// browser origins and can trip CORS during local development.
+const isLocalDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
-export const API_URL = base;
+export const API_URL = isLocalDev ? `${window.location.protocol}//${window.location.hostname}:5001` : base;
 
 export const DEPTH_POLICIES = Object.freeze({
     MATCHED_ONLY: "reference_only",

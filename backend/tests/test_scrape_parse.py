@@ -15,12 +15,45 @@ import requests
 from app import Earthquake
 from scrape import (
     CatalogueValidationError,
+    _fetch_page,
     _scrape_and_save_with_flask,
     fetch_authoritative_catalogue,
     get_monthly_data,
     sync_authoritative_rows,
     validate_candidate_catalogue,
 )
+
+
+@pytest.mark.parametrize("error", [requests.ConnectTimeout, requests.ReadTimeout, requests.ConnectionError])
+def test_page_recovers_after_transient_failure(error):
+    response = MagicMock()
+    with patch("scrape.requests.get", side_effect=[error("offline"), response]) as get, \
+            patch("scrape.time.sleep") as sleep:
+        assert _fetch_page("http://example.test/page") is response
+    assert get.call_count == 2
+    assert get.call_args.kwargs["timeout"] == (5, 20)
+    sleep.assert_called_once_with(1)
+
+
+def test_exhausted_timeout_preserves_current_catalogue(db_session):
+    sync_authoritative_rows([_candidate("2026-07-28 16:57:15.100")])
+    with patch("scrape.requests.get", side_effect=requests.ConnectTimeout("offline")) as get, \
+            patch("scrape.time.sleep"):
+        with pytest.raises(requests.ConnectTimeout):
+            _scrape_and_save_with_flask()
+    assert get.call_count == 2
+    assert [row.source_id for row in Earthquake.query.filter_by(is_current=True)] == [
+        "2026-07-28 16:57:15.100"
+    ]
+
+
+def test_http_error_is_not_retried():
+    response = MagicMock()
+    response.raise_for_status.side_effect = requests.HTTPError("missing page")
+    with patch("scrape.requests.get", return_value=response) as get:
+        with pytest.raises(requests.HTTPError):
+            _fetch_page("http://example.test/page")
+    get.assert_called_once()
 
 
 def _make_response(html: str) -> MagicMock:
@@ -407,8 +440,10 @@ def test_sync_marks_revised_snapshot_current_without_deleting_raw_rows(db_sessio
     assert rows[1].source_id == "2026-07-27 00:36:17.400"
 
 
+@pytest.mark.parametrize("changed", [{"mw": 3.95}, {"depth": 3.0}, {"lon": -21.288}])
 def test_same_exact_source_identity_revision_preserves_one_current_snapshot(
     db_session,
+    changed,
 ):
     source_id = "2026-07-27 00:36:17.400"
     original = _candidate(
@@ -418,13 +453,9 @@ def test_same_exact_source_identity_revision_preserves_one_current_snapshot(
         depth=3.3,
         mw=3.94,
     )
-    revised = _candidate(
-        source_id,
-        lat=64.119,
-        lon=-21.288,
-        depth=3.0,
-        mw=3.95,
-    )
+    values = dict(lat=64.119, lon=-21.285, depth=3.3, mw=3.94)
+    values.update(changed)
+    revised = _candidate(source_id, **values)
 
     sync_authoritative_rows([original])
     sync_authoritative_rows([revised])
@@ -434,7 +465,9 @@ def test_same_exact_source_identity_revision_preserves_one_current_snapshot(
     assert len(rows) == 2
     assert len(current) == 1
     assert current[0].source_id == source_id
-    assert current[0].longitude == -21.288
+    assert current[0].longitude == values["lon"]
+    assert current[0].depth == values["depth"]
+    assert current[0].mw_mean == values["mw"]
     assert rows[0].is_current is False
 
 
